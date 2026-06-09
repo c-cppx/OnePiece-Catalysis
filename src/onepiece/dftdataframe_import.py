@@ -16,6 +16,7 @@ import pandas as pd
 from ase import Atoms
 from ase.io import read
 
+from onepiece._compat import trapezoid
 from onepiece.adsorption import add_element_count_columns
 from onepiece.frame_utils import ensure_name_index
 from onepiece.storage import cache_key_for_paths, read_cache_payload, write_cache_payload
@@ -1114,7 +1115,7 @@ def _electronic_summary_from_path(calc_dir: Path, *, verbose: bool) -> dict[str,
             below_ef_mask = energies <= 0.0
             total_signal = total_dos.sum(axis=0) if total_dos.ndim > 1 else total_dos.reshape(-1)
             if below_ef_mask.any():
-                total_below_ef = float(np.trapz(total_signal[below_ef_mask], energies[below_ef_mask]))
+                total_below_ef = float(trapezoid(total_signal[below_ef_mask], energies[below_ef_mask]))
                 integrated_states_below_ef = float(doscar.integrated_total_dos[..., below_ef_mask][:, -1].sum())
             else:
                 total_below_ef = 0.0
