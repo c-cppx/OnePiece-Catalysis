@@ -8,9 +8,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from onepiece_studio.ui.streamlit_app import run_app
+
 from onepiece import add_adsorption_energies, assign_references_before_merge
 from onepiece_studio import DataFrameSource, OnePieceStudioConfig
-from onepiece_studio.ui.streamlit_app import run_app
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = Path("/Users/dk2994/Desktop/Uni/Journal/Thesis/Notebooks/Database/Chapter6")
