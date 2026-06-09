@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from onepiece._polars import dataframe_is_polars_safe, get_polars
-from onepiece.adsorption import row_element_count_map, structure_columns_in_frame
+from onepiece.adsorption import formula_counts, row_element_count_map, structure_columns_in_frame
 
 
 @dataclass(frozen=True, slots=True)
@@ -412,20 +412,8 @@ def _row_atom_counts(dataframe: pd.DataFrame) -> pd.Series:
     return pd.Series(np.nan, index=dataframe.index)
 
 
-def _formula_counts(value: Any) -> dict[str, int]:
-    if value is None:
-        return {}
-    text = str(value)
-    if not text or text == "0":
-        return {}
-    counts: dict[str, int] = {}
-    for element, number in re.findall(r"([A-Z][a-z]?)(\d*)", text):
-        counts[element] = counts.get(element, 0) + int(number or 1)
-    return counts
-
-
 def _anonymous_formula(value: Any) -> str:
-    counts = _formula_counts(value)
+    counts = formula_counts(value)
     if not counts:
         return ""
     ordered_counts = sorted(counts.values())

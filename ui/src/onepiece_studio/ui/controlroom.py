@@ -594,48 +594,6 @@ def _row_atom_counts(dataframe: pd.DataFrame) -> pd.Series:
     return pd.Series(np.nan, index=dataframe.index)
 
 
-def _formula_counts(value: Any) -> dict[str, int]:
-    if value is None:
-        return {}
-    text = str(value)
-    if not text or text == "0":
-        return {}
-    counts: dict[str, int] = {}
-    for element, number in re.findall(r"([A-Z][a-z]?)(\d*)", text):
-        counts[element] = counts.get(element, 0) + int(number or 1)
-    return counts
-
-
-def _anonymous_formula(value: Any) -> str:
-    counts = _formula_counts(value)
-    if not counts:
-        return ""
-    ordered_counts = sorted(counts.values())
-    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    parts = []
-    for index, count in enumerate(ordered_counts):
-        suffix = "" if count == 1 else str(count)
-        parts.append(f"{letters[index]}{suffix}")
-    return "".join(parts)
-
-
-def _normalize_anonymous_formula(value: str) -> str:
-    counts = []
-    for _element, number in re.findall(r"([A-Z])(\d*)", str(value).upper()):
-        counts.append(int(number or 1))
-    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    return "".join(f"{letters[index]}{'' if count == 1 else count}" for index, count in enumerate(sorted(counts)))
-
-
-def _parse_element_tokens(value: Any) -> list[str]:
-    text = str(value).replace("-", " ").replace(",", " ")
-    return [token for token in text.split() if _looks_like_element(token)]
-
-
-def _looks_like_element(value: Any) -> bool:
-    return bool(re.fullmatch(r"[A-Z][a-z]?", str(value)))
-
-
 def _record_type_options(dataframe: pd.DataFrame) -> list[str]:
     return sorted(_record_type_series(dataframe).dropna().unique().tolist())
 
