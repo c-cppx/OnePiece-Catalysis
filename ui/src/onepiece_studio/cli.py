@@ -5,6 +5,8 @@ import importlib
 import platform
 import subprocess  # nosec B404
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
 from pathlib import Path
 
 from onepiece import (
@@ -14,10 +16,17 @@ from onepiece import (
 )
 
 
+def _studio_version() -> str:
+    try:
+        return _package_version("onepiece-studio")
+    except PackageNotFoundError:
+        return "unknown (package not installed)"
+
+
 def main(argv: list[str] | None = None) -> int:
     prog_name = Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else "onepiece-studio"
     parser = argparse.ArgumentParser(prog=prog_name)
-    parser.add_argument("--version", action="version", version="onepiece-studio 1.0.0")
+    parser.add_argument("--version", action="version", version=f"onepiece-studio {_studio_version()}")
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("demo", help="Run the OnePiece Studio Streamlit demo.")
     subparsers.add_parser(

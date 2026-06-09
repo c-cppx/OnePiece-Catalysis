@@ -1,5 +1,13 @@
 """OnePiece backend for local scientific dataframe workflows."""
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
+
+try:
+    __version__ = _package_version("onepiece")
+except PackageNotFoundError:  # pragma: no cover - only when run from a source tree
+    __version__ = "0.0.0+unknown"
+
 from onepiece.adsorption import (
     GasReferences,
     add_adsorption_energies,

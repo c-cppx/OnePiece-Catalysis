@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from onepiece_studio.adapters import HDFSource
 
 from onepiece.sources.core import read_hdf_path
-from onepiece_studio.adapters import HDFSource
 
 
 def _write_hdf(path: Path, key: str = "df") -> pd.DataFrame:
