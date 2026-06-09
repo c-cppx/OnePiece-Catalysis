@@ -1,0 +1,91 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{hyperref}
+
+\geometry{margin=2.5cm}
+
+\title{Rueckmeldung an den PFUI-Softwareentwickler}
+\author{Codex}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Zielgruppe dieser Rueckmeldung}
+Die Anmerkungen sind aus Sicht eines Onboardings fuer neue Gruppenmitglieder formuliert. Die Leitfrage lautet nicht nur, ob die UI technisch funktioniert, sondern ob eine neue Person damit lokale DFT-Daten sicher, nachvollziehbar und fachlich sinnvoll auswerten kann.
+
+\section*{Was bereits sehr gut funktioniert}
+\begin{itemize}
+  \item Lokale HDF-Dateien koennen ohne Datenbankserver in eine gemeinsame Analyseoberflaeche gebracht werden.
+  \item Die Trennung zwischen Data Sources, Workflow, Controlroom, Records und Adsorption ist fachlich sinnvoll.
+  \item Row-Actions mit \texttt{Exclude}, \texttt{Review}, \texttt{Reference} und \texttt{Open ASE} sind ein starker Schritt in Richtung echter Datenkuration.
+  \item Die Adsorptions- und Barrierelogik baut sinnvoll auf einer gefilterten Datenbasis auf.
+  \item Die Integration von ASE hilft, dass Strukturkontrolle nicht von der Tabellenanalyse getrennt wird.
+\end{itemize}
+
+\section*{Was aus Onboarding-Sicht noch fehlt}
+\subsection*{1. Gefuehrter Projektstart}
+Der groesste noch fehlende Baustein ist ein echter Projektassistent fuer Erstnutzer. Eine neue Person sollte nach dem Laden von Dateien gefuehrt werden durch:
+\begin{itemize}
+  \item Pruefung der geladenen Quellen
+  \item Erkennung offensichtlicher Namensmuster
+  \item Ueberblick ueber fehlende Formeln, fehlende Strukturen und problematische Referenzen
+  \item Vorschlag fuer eine erste kuratierte Default-View
+\end{itemize}
+
+\subsection*{2. Persistente und auditierbare Kuration}
+Der Status einer Rechnung sollte nicht nur in der Session leben. Fuer Gruppenarbeit fehlen:
+\begin{itemize}
+  \item Begruendung fuer Ausschluesse oder Review-Status
+  \item Zeitstempel und Bearbeiter
+  \item Export und Reimport von Kurationsentscheidungen
+  \item kurze Historie einer aktiven View
+\end{itemize}
+
+\subsection*{3. Starkerer Kontext bei Einzelinspektion}
+Neue Nutzer brauchen bei einer einzelnen Rechnung meist mehr Kontext als nur die eine Zeile. Hilfreich waeren:
+\begin{itemize}
+  \item direkte Verlinkung zur zugehoerigen Referenzrechnung
+  \item Anzeige von nah verwandten Rechnungen im gleichen Datensatz
+  \item Vergleich zweier Strukturen nebeneinander
+  \item direkte Anzeige, warum eine Zeile in der aktuellen View enthalten ist
+\end{itemize}
+
+\subsection*{4. Bessere Didaktik fuer Chemie-Anfaenger}
+Die UI ist bereits leistungsfaehig, aber fuer neue Studierende noch nicht selbsterklaerend genug. Sinnvoll waeren:
+\begin{itemize}
+  \item ein optionaler Lernmodus mit kurzen Hinweisen
+  \item vorbereitete Abfragen fuer haeufige Startfragen
+  \item klar benannte Standard-Workflows, etwa Oberflaechenvergleich oder Adsorbat-Screening
+  \item deutliche Warnungen bei gemischten Datentypen oder fehlenden Referenzen
+\end{itemize}
+
+\subsection*{5. Robuste Kontextaktionen statt nur Wunsch nach Rechtsklick}
+Ein echter Rechtsklick ist angenehm, aber nicht entscheidend. Wichtiger ist eine robuste, sichtbare Kontextleiste fuer ausgewaehlte Tabellenzeilen und Plotpunkte. Diese sollte ausbaubar sein fuer:
+\begin{itemize}
+  \item Ausschluss
+  \item Review
+  \item Referenz setzen
+  \item ASE oeffnen
+  \item Dateipfad oeffnen
+  \item Vergleichsliste hinzufuegen
+\end{itemize}
+
+\section*{Empfohlene Priorisierung}
+\begin{enumerate}
+  \item Projektassistent fuer neue Datensaetze
+  \item persistente Kuration mit Export
+  \item Einzelinspektion mit Referenz- und Nachbarschaftskontext
+  \item gefuehrte Lehr- und Onboarding-Views
+  \item spaeter komfortablere Interaktionen wie Kontextmenues oder Mehrfachvergleich
+\end{enumerate}
+
+\section*{Schlussgedanke}
+PFUI ist bereits nah an einer echten lokalen Forschungssoftware. Der naechste grosse Gewinn liegt nicht prim\"ar in noch mehr Plottypen, sondern in besserem Onboarding, belastbarer Kuration und einem transparenteren Weg von der einzelnen DFT-Rechnung zur finalen wissenschaftlichen Aussage.
+
+\end{document}

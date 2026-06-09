@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cu/Ga Surface Phase Diagrams</title>
+  <style>
+    body { font-family: Lucifer, system-ui, sans-serif; margin: 0; color: #252933; background: #ffffff; }
+    header { padding: 34px 42px 24px; border-bottom: 1px solid #e4e7ec; }
+    h1 { font-size: 38px; margin: 0 0 8px; letter-spacing: 0; }
+    .sub { color: #667085; max-width: 980px; line-height: 1.45; margin: 0; }
+    main { padding: 28px 42px 42px; }
+    .top-link { margin-bottom: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(540px, 1fr)); gap: 24px; }
+    .card { border: 1px solid #d9dee7; border-radius: 8px; padding: 18px; background: #fbfcfd; }
+    .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; }
+    .card h2 { margin: 0; font-size: 24px; }
+    .card-head span { color: #667085; }
+    .card p { color: #475467; }
+    img { width: 100%; border: 1px solid #e4e7ec; border-radius: 6px; background: white; }
+    a { color: #b7353d; text-decoration: none; font-weight: 700; margin-right: 16px; }
+    a:hover { text-decoration: underline; }
+    code { font-family: Lucifer, system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Cu/Ga Surface Phase Diagrams</h1>
+    <p class="sub">Each Miller index is computed individually. x = Temperature T [K], y = log10(pH2O/pH2), z = corrected form_G_per_Area [eV/Å²]. Colors mark the stable surface candidate at each condition.</p>
+  </header>
+  <main>
+    <p class="top-link"><a href="cuga_surface_all_stable_phases.csv">Download combined stable phase table</a></p>
+    <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h2>hkl 100</h2>
+        <span>6 stable phases</span>
+      </div>
+      <p>Individual Miller-index phase map. Open the 3D plot for interactive rotation and hover labels.</p>
+      <p><a href="cuga_surface_100_phase_diagram_3d.html">Open 3D plot</a><a href="cuga_surface_100_stable_phases.csv">CSV</a></p>
+      <a href="cuga_surface_100_phase_diagram_3d.html"><img src="cuga_surface_100_phase_diagram_2d.png" alt="2D phase diagram hkl 100"></a>
+    </section>
+    
+    <section class="card">
+      <div class="card-head">
+        <h2>hkl 110</h2>
+        <span>8 stable phases</span>
+      </div>
+      <p>Individual Miller-index phase map. Open the 3D plot for interactive rotation and hover labels.</p>
+      <p><a href="cuga_surface_110_phase_diagram_3d.html">Open 3D plot</a><a href="cuga_surface_110_stable_phases.csv">CSV</a></p>
+      <a href="cuga_surface_110_phase_diagram_3d.html"><img src="cuga_surface_110_phase_diagram_2d.png" alt="2D phase diagram hkl 110"></a>
+    </section>
+    
+    <section class="card">
+      <div class="card-head">
+        <h2>hkl 111</h2>
+        <span>7 stable phases</span>
+      </div>
+      <p>Individual Miller-index phase map. Open the 3D plot for interactive rotation and hover labels.</p>
+      <p><a href="cuga_surface_111_phase_diagram_3d.html">Open 3D plot</a><a href="cuga_surface_111_stable_phases.csv">CSV</a></p>
+      <a href="cuga_surface_111_phase_diagram_3d.html"><img src="cuga_surface_111_phase_diagram_2d.png" alt="2D phase diagram hkl 111"></a>
+    </section>
+    
+    <section class="card">
+      <div class="card-head">
+        <h2>hkl 211</h2>
+        <span>11 stable phases</span>
+      </div>
+      <p>Individual Miller-index phase map. Open the 3D plot for interactive rotation and hover labels.</p>
+      <p><a href="cuga_surface_211_phase_diagram_3d.html">Open 3D plot</a><a href="cuga_surface_211_stable_phases.csv">CSV</a></p>
+      <a href="cuga_surface_211_phase_diagram_3d.html"><img src="cuga_surface_211_phase_diagram_2d.png" alt="2D phase diagram hkl 211"></a>
+    </section>
+    </div>
+  </main>
+</body>
+</html>

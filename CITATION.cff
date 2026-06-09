@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use onepiece-studio in academic work, please cite the software."
+title: "onepiece-studio"
+version: "0.3.0"
+type: software
+license: "GPL-3.0-or-later"
+authors:
+  - family-names: "Coppex"
+    given-names: "Claude"
+    email: "claude.coppex@kit.edu"
+preferred-citation:
+  type: software
+  title: "onepiece-studio"
+  version: "0.3.0"
+  authors:
+    - family-names: "Coppex"
+      given-names: "Claude"
+      email: "claude.coppex@kit.edu"

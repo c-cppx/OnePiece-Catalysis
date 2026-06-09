@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">OnePiece Studio logo</title>
+  <desc id="desc">A local materials workbench logo with a phase diagram panel, atomic nodes, and OnePiece Studio wordmark.</desc>
+  <defs>
+    <linearGradient id="onepiece-studio-panel" x1="70" y1="42" x2="278" y2="252" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#eaf3f4"/>
+      <stop offset="1" stop-color="#d8e7e4"/>
+    </linearGradient>
+    <linearGradient id="onepiece-studio-field-a" x1="82" y1="60" x2="242" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f7f8c"/>
+      <stop offset="1" stop-color="#86b995"/>
+    </linearGradient>
+    <linearGradient id="onepiece-studio-field-b" x1="114" y1="218" x2="258" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d74f42"/>
+      <stop offset="1" stop-color="#e4a04f"/>
+    </linearGradient>
+    <filter id="onepiece-studio-soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#18323a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="320" rx="0" fill="#fbfcfd"/>
+
+  <g filter="url(#onepiece-studio-soft-shadow)">
+    <rect x="58" y="46" width="226" height="226" rx="34" fill="url(#onepiece-studio-panel)" stroke="#17313a" stroke-width="6"/>
+    <path d="M91 233 C116 178 131 113 171 92 C205 74 233 91 253 113 L253 241 L91 241 Z" fill="url(#onepiece-studio-field-a)" opacity="0.96"/>
+    <path d="M91 241 C120 198 155 174 188 171 C218 168 238 182 253 202 L253 241 Z" fill="url(#onepiece-studio-field-b)" opacity="0.97"/>
+    <path d="M91 233 C116 178 131 113 171 92 C205 74 233 91 253 113" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M91 241 C120 198 155 174 188 171 C218 168 238 182 253 202" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    <path d="M91 74 V241 H253" fill="none" stroke="#17313a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M116 213 H253 M116 181 H253 M116 149 H253 M116 117 H253" stroke="#17313a" stroke-width="2.5" opacity="0.18"/>
+    <path d="M123 74 V241 M155 74 V241 M187 74 V241 M219 74 V241" stroke="#17313a" stroke-width="2.5" opacity="0.18"/>
+    <circle cx="123" cy="207" r="10" fill="#ffffff" stroke="#17313a" stroke-width="5"/>
+    <circle cx="170" cy="126" r="10" fill="#ffffff" stroke="#17313a" stroke-width="5"/>
+    <circle cx="224" cy="188" r="10" fill="#ffffff" stroke="#17313a" stroke-width="5"/>
+  </g>
+
+  <g transform="translate(330 82)">
+    <text x="0" y="72" font-family="Lucifer, 'Lucifer Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="72" font-weight="750" letter-spacing="0" fill="#17212b">OnePiece Studio</text>
+    <text x="4" y="122" font-family="Lucifer, 'Lucifer Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="520" letter-spacing="0" fill="#52616c">Local Materials Workbench</text>
+    <g transform="translate(4 154)">
+      <rect x="0" y="0" width="104" height="28" rx="8" fill="#eaf3f4" stroke="#bfd2d5"/>
+      <rect x="120" y="0" width="124" height="28" rx="8" fill="#fff2e7" stroke="#e5c1a4"/>
+      <rect x="260" y="0" width="102" height="28" rx="8" fill="#eef0f6" stroke="#cbd1df"/>
+      <text x="16" y="19" font-family="Lucifer, 'Lucifer Sans', sans-serif" font-size="14" font-weight="650" fill="#2f7f8c">filter</text>
+      <text x="136" y="19" font-family="Lucifer, 'Lucifer Sans', sans-serif" font-size="14" font-weight="650" fill="#b85a34">phase map</text>
+      <text x="276" y="19" font-family="Lucifer, 'Lucifer Sans', sans-serif" font-size="14" font-weight="650" fill="#5b647c">trace rows</text>
+    </g>
+  </g>
+</svg>

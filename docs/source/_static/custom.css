@@ -1,0 +1,56 @@
+:root {
+  --font-stack: "Lucifer", system-ui, sans-serif;
+  --font-stack--monospace: "Lucifer", ui-monospace, monospace;
+  --font-stack--headings: "Lucifer", system-ui, sans-serif;
+  --font-stack--ui: "Lucifer", system-ui, sans-serif;
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select,
+.sidebar-tree,
+.toc-tree,
+.content,
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6,
+.brand,
+.sidebar-brand-text,
+.sidebar-logo,
+.page-info,
+.related-pages,
+.headerlink,
+.content code,
+.content pre,
+.highlight,
+.highlight pre {
+  font-family: "Lucifer", system-ui, sans-serif !important;
+}
+
+.math,
+.math *,
+.MathJax,
+.MathJax *,
+.mjx-container,
+.mjx-container *,
+span.eqno,
+div.math,
+span.math {
+  font-family: initial !important;
+}
+
+.screenshot {
+  border: 1px solid #d8dee9;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+}
+
+.content code {
+  border-radius: 4px;
+}

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "onepiece-studio"
+version = "1.0.0"
+description = "Streamlit frontend package for OnePiece scientific datasets and workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+authors = [
+  { name = "Claude Coppex", email = "claude.coppex@kit.edu" }
+]
+maintainers = [
+  { name = "Claude Coppex", email = "claude.coppex@kit.edu" }
+]
+keywords = [
+  "materials-science",
+  "computational-chemistry",
+  "streamlit",
+  "database-ui",
+  "ase",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+  "onepiece[performance]>=1.0.0,<2.0.0",
+  "pillow>=10.0",
+  "streamlit>=1.35",
+  "plotly>=5.20",
+]
+
+[project.scripts]
+onepiece-studio = "onepiece_studio.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["onepiece_studio*"]

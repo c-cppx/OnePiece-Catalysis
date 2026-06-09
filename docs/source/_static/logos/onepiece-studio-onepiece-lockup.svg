@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">OnePiece Studio and OnePiece package lockup</title>
+  <desc id="desc">A combined logo lockup for the OnePiece atomistic data core and the OnePiece Studio local materials workbench.</desc>
+  <defs>
+    <linearGradient id="mark-a" x1="74" y1="88" x2="284" y2="298" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f3f7fb"/>
+      <stop offset="1" stop-color="#dfe8e8"/>
+    </linearGradient>
+    <linearGradient id="mark-b" x1="124" y1="112" x2="260" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f7f8c"/>
+      <stop offset="1" stop-color="#86b995"/>
+    </linearGradient>
+    <linearGradient id="mark-c" x1="146" y1="276" x2="274" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d74f42"/>
+      <stop offset="1" stop-color="#e4a04f"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#18323a" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="420" fill="#fbfcfd"/>
+
+  <g filter="url(#soft-shadow)">
+    <rect x="70" y="78" width="230" height="230" rx="42" fill="url(#mark-a)" stroke="#17212b" stroke-width="6"/>
+    <path d="M104 273 C129 215 146 148 186 126 C218 109 248 124 270 149 L270 278 L104 278 Z" fill="url(#mark-b)"/>
+    <path d="M104 278 C132 238 165 213 197 211 C229 209 251 224 270 246 L270 278 Z" fill="url(#mark-c)"/>
+    <path d="M104 273 C129 215 146 148 186 126 C218 109 248 124 270 149" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M104 278 C132 238 165 213 197 211 C229 209 251 224 270 246" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M104 108 V278 H270" fill="none" stroke="#17212b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="134" cy="248" r="10" fill="#ffffff" stroke="#17212b" stroke-width="5"/>
+    <circle cx="188" cy="158" r="10" fill="#ffffff" stroke="#17212b" stroke-width="5"/>
+    <circle cx="236" cy="225" r="10" fill="#ffffff" stroke="#17212b" stroke-width="5"/>
+
+    <circle cx="326" cy="112" r="34" fill="#ffffff" stroke="#17212b" stroke-width="5"/>
+    <path d="M309 112 L326 101 L343 112 L343 132 L326 143 L309 132 Z" fill="none" stroke="#2f7f8c" stroke-width="6" stroke-linejoin="round"/>
+  </g>
+
+  <g transform="translate(390 118)">
+    <text x="0" y="70" font-family="Lucifer, 'Lucifer Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="64" font-weight="750" letter-spacing="0" fill="#17212b">OnePiece + OnePiece Studio</text>
+    <text x="4" y="121" font-family="Lucifer, 'Lucifer Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="520" letter-spacing="0" fill="#52616c">local atomistic data core and materials workbench</text>
+    <g transform="translate(4 158)">
+      <rect x="0" y="0" width="138" height="31" rx="8" fill="#eef0f6" stroke="#cbd1df"/>
+      <rect x="154" y="0" width="132" height="31" rx="8" fill="#eaf3f4" stroke="#bfd2d5"/>
+      <rect x="302" y="0" width="148" height="31" rx="8" fill="#fff2e7" stroke="#e5c1a4"/>
+      <text x="18" y="21" font-family="Lucifer, 'Lucifer Sans', sans-serif" font-size="15" font-weight="650" fill="#5f6f91">HDF + ASE</text>
+      <text x="172" y="21" font-family="Lucifer, 'Lucifer Sans', sans-serif" font-size="15" font-weight="650" fill="#2f7f8c">filter rows</text>
+      <text x="320" y="21" font-family="Lucifer, 'Lucifer Sans', sans-serif" font-size="15" font-weight="650" fill="#b85a34">phase diagrams</text>
+    </g>
+  </g>
+</svg>

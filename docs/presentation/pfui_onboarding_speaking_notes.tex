@@ -1,0 +1,68 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+
+\title{Sprechtext zu PFUI fuer neue Gruppenmitglieder}
+\author{Codex}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Einsatz und Umfang}
+Diese Notizen gehoeren zu einer kurzen Einfuehrung in PFUI fuer neue Studierende in der Forschungsgruppe. Die sinnvolle Vortragsdauer liegt bei etwa 15 bis 20 Minuten. Das Tempo sollte ruhig bleiben, damit auch Personen mit wenig Programmiererfahrung folgen koennen. Die Leitidee ist: nicht jede Funktion zeigen, sondern ein sicheres Arbeitsmuster vermitteln.
+
+\section*{Slide 1: Titel}
+Hier kurz sagen, worum es geht: PFUI ist keine allgemeine Datenbankvorlesung, sondern ein lokales Werkzeug fuer HDF-, pandas- und ASE-basierte DFT-Daten. Betonen, dass die Software den Uebergang von vielen einzelnen Rechnungen zu einer kuratierten wissenschaftlichen Aussage erleichtern soll.
+
+\section*{Slide 2: Ziel der Einfuehrung}
+Die drei Lernziele langsam und klar vorlesen. Wichtig ist, dass die Studierenden verstehen, dass Datenanalyse in diesem Kontext immer drei Ebenen hat: Datenbasis, Einzelrechnung und zusammenfassender Plot. Wenn diese Reihenfolge durcheinandergeraet, entstehen schnell Fehlinterpretationen.
+
+\section*{Slide 3: Mentales Modell}
+Diese Folie ist didaktisch zentral. Erklaeren, dass PFUI wie ein Arbeitsfluss gedacht ist. Zuerst kommen die HDF-Dateien, dann die aktive Datenbasis, dann optionale Hilfsspalten, danach die fachliche Auswahl im Controlroom. Records, Visualize und Adsorption sind nachgelagerte Ansichten auf genau diese Auswahl. Das hilft sehr, damit Studierende nicht glauben, jeder Plot arbeite auf einer anderen Datenbasis.
+
+\section*{Slide 4: Welcher Tab beantwortet welche Frage}
+Hier nicht jeden Knopf erklaeren. Stattdessen jeder Registerkarte eine alltagstaugliche Frage zuordnen. Beispiel: Records ist nicht einfach eine Detailansicht, sondern die Stelle, an der man prueft, ob eine einzelne DFT-Rechnung fuer den spaeteren Vergleich ueberhaupt vertrauenswuerdig ist.
+
+\section*{Slide 5: Projektstart}
+Betonen, dass der Projektstart methodisch wichtiger ist als spaetere Schoenheit des Plots. Neue Studierende sollen nicht sofort nach den energetisch besten Strukturen suchen. Stattdessen sollen sie zuerst schauen, welche Dateien geladen wurden, ob Reihen fehlen, ob Datensaetze doppelt vorkommen und ob das Namensschema fuer Referenzen ueberhaupt konsistent ist.
+
+\section*{Slide 6: Controlroom}
+Die Rolle des Controlrooms als wissenschaftlicher Filterraum hervorheben. Nicht nur sagen, dass man dort filtert, sondern wofuer. Ein Ausschluss bedeutet inhaltlich: diese Rechnung soll im aktuellen Argument nicht mitgezaehlt werden. Der Review-Status ist ebenfalls wichtig, weil man so unsichere Rechnungen sichtbar halten kann, ohne sie ungeprueft mit den guten Daten zu mischen.
+
+\section*{Slide 7: Einzelinspektion}
+Hier bewusst langsam sprechen. Viele Fehlinterpretationen entstehen, weil nur die Energie gelesen wird. Die Checkliste ist deshalb die eigentliche chemische Routine: Herkunft der Rechnung, Konvergenz, Referenzzuordnung und dann die Struktur selbst. Bei ASE kann man die Plausibilitaet der Bindungsgeometrie oder des Adsorbats oft viel schneller erkennen als in einer Tabelle.
+
+\section*{Slide 8: Qualitaetskontrolle}
+Die Folie mit der \texttt{fmax}-Verteilung ist ein guter Moment, um das Prinzip von Qualitaet vor Interpretation zu verankern. Nicht jede groessere Kraft macht eine Rechnung unbrauchbar, aber sie muss zumindest bewusst bewertet werden. Fuer neue Gruppenmitglieder ist wichtig: ein Ausreisser ist zuerst ein Signal fuer Inspektion, nicht sofort ein Ergebnis.
+
+\section*{Slide 9: Von der Kuration zum Plot}
+Hier klar sagen, dass Plots in PFUI auf der gefilterten Datenbasis aufbauen. Deshalb ist der Weg zum Plot Teil der wissenschaftlichen Aussage. Wenn eine Person spaeter fragt, warum eine bestimmte Phase stabil erscheint oder warum eine Adsorptionsenergie so klein ist, muss man auf die konkrete Untermenge von Rechnungen zurueckgehen koennen.
+
+\section*{Slide 10: Empfohlener Arbeitsablauf}
+Diese Folie ist das eigentliche Take-away fuer den Alltag. Wenn Studierende nur diese Reihenfolge mitnehmen, ist schon viel gewonnen. Bei einer Live-Demo kann man hier parallel einmal durchklicken und zeigen, wie man von Data Sources ueber Controlroom zu Records und dann zu einem Plot gelangt.
+
+\section*{Slide 11: Typische Fehler}
+Diese Folie sollte freundlich formuliert bleiben. Nicht als Warnliste mit Schuldton, sondern als typische Stolperstellen. Besonders wichtig ist der Punkt, dass Testrechnungen, Referenzen und Produktivdaten nicht gedankenlos in einer Analyse gemischt werden duerfen. Das ist fuer viele neue Gruppenmitglieder anfangs nicht offensichtlich.
+
+\section*{Slide 12: Rueckmeldung an den Entwickler}
+Diese Folie kann man als konstruktive Bruecke verwenden. PFUI ist bereits stark, aber fuer echtes Onboarding fehlen noch einige Dinge. Besonders wichtig waeren ein gefuehrter Projektstart, bessere Persistenz von Kurationsentscheidungen und ein noch staerkerer Kontext fuer die Einzelinspektion. Hier lohnt es sich, die Punkte eher als naechste Ausbaustufe statt als Kritik zu formulieren.
+
+\section*{Didaktische Hinweise fuer die Vortragenden}
+\begin{itemize}
+  \item Fachbegriffe aus der Software immer in eine chemische Frage uebersetzen.
+  \item Nicht alle Tabs live zeigen; Records und Controlroom sind die wichtigsten.
+  \item Bei ASE kurz demonstrieren, wie man eine Struktur fachlich betrachtet: Adsorbat, Bindungsplatz, Zellgroesse, Oberflaeche, eventuelle Artefakte.
+  \item Wenn Zeit knapp ist, die Folien zu \texttt{fmax}, Records und dem empfohlenen Arbeitsablauf priorisieren.
+  \item Fuer Anfaenger ist ein glaubwuerdiger kleiner Workflow didaktisch besser als ein grosser Funktionsueberblick.
+\end{itemize}
+
+\end{document}
