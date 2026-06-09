@@ -107,6 +107,7 @@ giving them immediate visual feedback.
 For a more explicit first-day onboarding page, see:
 
 - [First Day Guide For A Bachelor Student](first_day_student.md)
+- [Load Your First Lab Dataset](load_first_lab_dataset.md)
 
 ## 6. Typical First Actions In The UI
 

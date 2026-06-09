@@ -110,6 +110,21 @@ onepiece-studio doctor
 onepiece-studio qa
 ```
 
+## New student path
+
+For a new student in a research group, the recommended first sequence is:
+
+```bash
+onepiece-studio doctor
+onepiece-studio qa
+onepiece-studio tutorial
+```
+
+Then continue with the docs pages:
+
+- [First Day Guide For A Bachelor Student](docs/source/first_day_student.md)
+- [Load Your First Lab Dataset](docs/source/load_first_lab_dataset.md)
+
 ## Backend example
 
 ```python
@@ -167,6 +182,13 @@ Adsorption energies and adsorption free energies are then evaluated from consist
 
 This is the central idea in the package: do the same scientific bookkeeping for `E` and for `G`,
 so that electronic screening and thermodynamic screening stay aligned.
+
+## Support
+
+If OnePiece helps your research or saves you setup time, you can support the
+project here:
+
+- [Buy Me a Coffee: ClaudeCoppex](https://buymeacoffee.com/ClaudeCoppex)
 
 ## Data model
 

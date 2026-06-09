@@ -28,6 +28,7 @@ workflows, reaction-path analysis, and reproducible scientific curation.
 
 tutorial
 first_day_student
+load_first_lab_dataset
 troubleshooting
 api_usage
 quality_control
