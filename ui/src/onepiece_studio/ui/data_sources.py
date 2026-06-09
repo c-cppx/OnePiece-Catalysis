@@ -42,6 +42,9 @@ from onepiece import (
 from onepiece import (
     store_source as backend_store_source,
 )
+from onepiece_studio.state import (
+    CRAWL_OUTPUT_HDF,
+)
 from onepiece_studio.ui.workbook import apply_session_edits, init_workbook_state
 
 SOURCE_STATE_KEY = "onepiece_studio_extra_hdf_sources"
@@ -153,7 +156,7 @@ def _render_add_sources(st: Any) -> None:
             "Optional output HDF path",
             value="",
             placeholder="path/to/created_frame.hdf",
-            key="onepiece_studio_crawl_output_hdf",
+            key=CRAWL_OUTPUT_HDF,
         )
         st.caption(
             "Typical DFTDataFrame output columns include `Name`, `Formula`, `E`, `Path`, `struc`, "
@@ -289,7 +292,7 @@ def _suggest_crawled_hdf_path(root_text: str) -> str:
 
 
 def _set_crawl_output_hdf(session_state: Any, output_path: str) -> None:
-    session_state["onepiece_studio_crawl_output_hdf"] = output_path
+    session_state[CRAWL_OUTPUT_HDF] = output_path
 
 
 def _crawl_summary(

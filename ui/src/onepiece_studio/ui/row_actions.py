@@ -8,6 +8,12 @@ from typing import Any
 
 import pandas as pd
 
+from onepiece_studio.state import (
+    CONTROL_STATUS,
+    CONTROL_USE_STATUS,
+    CONTROL_VISIBLE_STATES,
+)
+
 
 def row_key_from_row(row: pd.Series, fallback: Any) -> str:
     if "source_hdf" in row.index and "source_row" in row.index:
@@ -22,10 +28,10 @@ def row_keys(dataframe: pd.DataFrame) -> pd.Series:
 
 
 def set_row_status(st: Any, row_key: str, status: str) -> None:
-    state = st.session_state.setdefault("onepiece_studio_control_status", {})
+    state = st.session_state.setdefault(CONTROL_STATUS, {})
     state[row_key] = status
-    st.session_state["onepiece_studio_control_use_status"] = True
-    st.session_state.setdefault("onepiece_studio_control_visible_states", ["included", "review", "reference"])
+    st.session_state[CONTROL_USE_STATUS] = True
+    st.session_state.setdefault(CONTROL_VISIBLE_STATES, ["included", "review", "reference"])
 
 
 def first_atoms(row: pd.Series) -> tuple[str | None, Any | None]:

@@ -14,6 +14,21 @@ from onepiece.services import filter_any_token as backend_filter_any_token
 from onepiece.services import filter_text as backend_filter_text
 from onepiece.services import query_description as backend_query_description
 from onepiece_studio.materials_columns import column_context, profile_review
+from onepiece_studio.state import (
+    CONTROL_DROP_CONVERGENCE,
+    CONTROL_DROP_TEST,
+    CONTROL_FMAX_MAX,
+    CONTROL_MATERIAL_QUERY,
+    CONTROL_NUMERIC,
+    CONTROL_ROW_KEY,
+    CONTROL_SELECTED_FACETS,
+    CONTROL_STATUS,
+    CONTROL_TEXT_EXCLUDE,
+    CONTROL_TEXT_INCLUDE,
+    CONTROL_USE_STATUS,
+    CONTROL_VISIBLE_STATES,
+    CONTROLROOM_ACTIVE_DATAFRAME,
+)
 from onepiece_studio.ui.row_actions import (
     render_action_grid,
     row_keys,
@@ -59,18 +74,18 @@ def render_controlroom(st: Any, dataframe: pd.DataFrame) -> ControlroomResult:
 
 
 def _init_state(st: Any, dataframe: pd.DataFrame) -> None:
-    st.session_state.setdefault("onepiece_studio_control_text_include", "")
-    st.session_state.setdefault("onepiece_studio_control_text_exclude", "")
-    st.session_state.setdefault("onepiece_studio_control_use_status", True)
-    st.session_state.setdefault("onepiece_studio_control_status", {})
-    st.session_state.setdefault("onepiece_studio_control_selected_facets", {})
-    st.session_state.setdefault("onepiece_studio_control_numeric", {})
-    st.session_state.setdefault("onepiece_studio_control_material_query", {})
-    st.session_state.setdefault("onepiece_studio_control_fmax_max", None)
-    st.session_state.setdefault("onepiece_studio_control_drop_convergence", False)
-    st.session_state.setdefault("onepiece_studio_control_drop_test", False)
-    if "onepiece_studio_control_row_key" not in st.session_state:
-        st.session_state["onepiece_studio_control_row_key"] = _row_keys(dataframe)
+    st.session_state.setdefault(CONTROL_TEXT_INCLUDE, "")
+    st.session_state.setdefault(CONTROL_TEXT_EXCLUDE, "")
+    st.session_state.setdefault(CONTROL_USE_STATUS, True)
+    st.session_state.setdefault(CONTROL_STATUS, {})
+    st.session_state.setdefault(CONTROL_SELECTED_FACETS, {})
+    st.session_state.setdefault(CONTROL_NUMERIC, {})
+    st.session_state.setdefault(CONTROL_MATERIAL_QUERY, {})
+    st.session_state.setdefault(CONTROL_FMAX_MAX, None)
+    st.session_state.setdefault(CONTROL_DROP_CONVERGENCE, False)
+    st.session_state.setdefault(CONTROL_DROP_TEST, False)
+    if CONTROL_ROW_KEY not in st.session_state:
+        st.session_state[CONTROL_ROW_KEY] = _row_keys(dataframe)
 
 
 def _render_filter_presets(st: Any, dataframe: pd.DataFrame) -> None:
@@ -85,7 +100,7 @@ def _render_filter_presets(st: Any, dataframe: pd.DataFrame) -> None:
     if preset_columns[1].button("Ga rows", width="stretch"):
         _set_text_filter(st, include="Ga")
     if "fmax" in dataframe.columns and preset_columns[0].button("fmax ok", width="stretch"):
-        st.session_state["onepiece_studio_control_fmax_max"] = 0.05
+        st.session_state[CONTROL_FMAX_MAX] = 0.05
     if preset_columns[1].button("Needs review", width="stretch"):
         _set_status_filter(st, ["review"])
 
@@ -94,16 +109,16 @@ def _render_inclusion_editor(st: Any, dataframe: pd.DataFrame) -> None:
     with st.expander("Inclusion states", expanded=True):
         st.checkbox(
             "Use inclusion state",
-            key="onepiece_studio_control_use_status",
+            key=CONTROL_USE_STATUS,
             help="Rows marked excluded are removed from the active view.",
         )
         st.multiselect(
             "Visible states",
             ["included", "review", "reference", "excluded"],
             default=st.session_state.get(
-                "onepiece_studio_control_visible_states", ["included", "review", "reference"]
+                CONTROL_VISIBLE_STATES, ["included", "review", "reference"]
             ),
-            key="onepiece_studio_control_visible_states",
+            key=CONTROL_VISIBLE_STATES,
         )
         row_options = _name_options(dataframe)
         selected = st.selectbox("Mark row", [""] + row_options, index=0)
@@ -114,7 +129,7 @@ def _render_inclusion_editor(st: Any, dataframe: pd.DataFrame) -> None:
         )
         if st.button("Apply state", disabled=not selected, width="stretch"):
             key = selected.split(" | ", 1)[0]
-            st.session_state["onepiece_studio_control_status"][key] = new_state
+            st.session_state[CONTROL_STATUS][key] = new_state
 
         status_table = _status_table(st, dataframe)
         if not status_table.empty:
@@ -125,12 +140,12 @@ def _render_name_filters(st: Any) -> None:
     with st.expander("Name / text filters", expanded=True):
         st.text_input(
             "Include text",
-            key="onepiece_studio_control_text_include",
+            key=CONTROL_TEXT_INCLUDE,
             placeholder="e.g. Cu-211 Ga clean",
         )
         st.text_input(
             "Exclude text",
-            key="onepiece_studio_control_text_exclude",
+            key=CONTROL_TEXT_EXCLUDE,
             placeholder="e.g. convergence test broken",
         )
 
@@ -142,7 +157,7 @@ def _render_materials_search(st: Any, dataframe: pd.DataFrame) -> None:
             "chemical system, element sets, composition size, structure size and "
             "property windows."
         )
-        query = st.session_state.setdefault("onepiece_studio_control_material_query", {})
+        query = st.session_state.setdefault(CONTROL_MATERIAL_QUERY, {})
         elements = _available_elements(dataframe)
 
         formula_col, chemsys_col = st.columns(2)
@@ -287,12 +302,12 @@ def _render_domain_filters(st: Any, dataframe: pd.DataFrame) -> None:
         facet_columns = _facet_columns(dataframe)
         for column in facet_columns:
             options = sorted(dataframe[column].dropna().astype(str).unique().tolist())
-            current = st.session_state["onepiece_studio_control_selected_facets"].get(column, [])
+            current = st.session_state[CONTROL_SELECTED_FACETS].get(column, [])
             selected[column] = st.multiselect(column, options, default=current)
-        st.session_state["onepiece_studio_control_selected_facets"] = selected
+        st.session_state[CONTROL_SELECTED_FACETS] = selected
 
-        st.checkbox("Hide convergence calculations by name", key="onepiece_studio_control_drop_convergence")
-        st.checkbox("Hide test calculations by name", key="onepiece_studio_control_drop_test")
+        st.checkbox("Hide convergence calculations by name", key=CONTROL_DROP_CONVERGENCE)
+        st.checkbox("Hide test calculations by name", key=CONTROL_DROP_TEST)
 
 
 def _render_numeric_controls(st: Any, dataframe: pd.DataFrame) -> None:
@@ -301,7 +316,7 @@ def _render_numeric_controls(st: Any, dataframe: pd.DataFrame) -> None:
             finite = _finite(dataframe["fmax"])
             if not finite.empty:
                 default_value = _clamp_float(
-                    st.session_state.get("onepiece_studio_control_fmax_max"),
+                    st.session_state.get(CONTROL_FMAX_MAX),
                     minimum=float(finite.min()),
                     maximum=float(finite.max()),
                     fallback=float(finite.max()),
@@ -313,20 +328,20 @@ def _render_numeric_controls(st: Any, dataframe: pd.DataFrame) -> None:
                     value=default_value,
                     step=0.01,
                 )
-                st.session_state["onepiece_studio_control_fmax_max"] = value
+                st.session_state[CONTROL_FMAX_MAX] = value
 
         numeric_columns = _numeric_filter_columns(dataframe)
         selected = st.multiselect(
             "Additional numeric columns",
             numeric_columns,
-            default=list(st.session_state["onepiece_studio_control_numeric"].keys()),
+            default=list(st.session_state[CONTROL_NUMERIC].keys()),
         )
         numeric_state: dict[str, tuple[float, float]] = {}
         for column in selected:
             finite = _finite(dataframe[column])
             if finite.empty or finite.min() == finite.max():
                 continue
-            default = st.session_state["onepiece_studio_control_numeric"].get(
+            default = st.session_state[CONTROL_NUMERIC].get(
                 column, (float(finite.min()), float(finite.max()))
             )
             numeric_state[column] = st.slider(
@@ -338,7 +353,7 @@ def _render_numeric_controls(st: Any, dataframe: pd.DataFrame) -> None:
                     min(float(finite.max()), float(default[1])),
                 ),
             )
-        st.session_state["onepiece_studio_control_numeric"] = numeric_state
+        st.session_state[CONTROL_NUMERIC] = numeric_state
 
 
 def _clamp_float(value: Any, *, minimum: float, maximum: float, fallback: float) -> float:
@@ -420,7 +435,7 @@ def _render_preview(st: Any, dataframe: pd.DataFrame) -> None:
         height=640,
         selection_mode="single-row",
         on_select="rerun",
-        key="onepiece_studio_controlroom_active_dataframe",
+        key=CONTROLROOM_ACTIVE_DATAFRAME,
     )
     selected_index = _selected_dataframe_index(event, display)
     if selected_index is not None and selected_index in dataframe.index:
@@ -450,22 +465,22 @@ def _render_row_actions(st: Any, row: pd.Series, index: Any, *, key_prefix: str)
 
 def _apply_controlroom_filters(st: Any, dataframe: pd.DataFrame) -> pd.DataFrame:
     query = DatasetQuery(
-        text_include=st.session_state.get("onepiece_studio_control_text_include", ""),
-        text_exclude=st.session_state.get("onepiece_studio_control_text_exclude", ""),
-        drop_convergence=bool(st.session_state.get("onepiece_studio_control_drop_convergence", True)),
-        drop_test=bool(st.session_state.get("onepiece_studio_control_drop_test", True)),
-        materials=dict(st.session_state.get("onepiece_studio_control_material_query", {})),
-        selected_facets=dict(st.session_state.get("onepiece_studio_control_selected_facets", {})),
-        fmax_max=st.session_state.get("onepiece_studio_control_fmax_max"),
-        numeric_ranges=dict(st.session_state.get("onepiece_studio_control_numeric", {})),
-        use_status=bool(st.session_state.get("onepiece_studio_control_use_status", True)),
-        visible_states=list(st.session_state.get("onepiece_studio_control_visible_states", ["included", "review", "reference"])),
+        text_include=st.session_state.get(CONTROL_TEXT_INCLUDE, ""),
+        text_exclude=st.session_state.get(CONTROL_TEXT_EXCLUDE, ""),
+        drop_convergence=bool(st.session_state.get(CONTROL_DROP_CONVERGENCE, True)),
+        drop_test=bool(st.session_state.get(CONTROL_DROP_TEST, True)),
+        materials=dict(st.session_state.get(CONTROL_MATERIAL_QUERY, {})),
+        selected_facets=dict(st.session_state.get(CONTROL_SELECTED_FACETS, {})),
+        fmax_max=st.session_state.get(CONTROL_FMAX_MAX),
+        numeric_ranges=dict(st.session_state.get(CONTROL_NUMERIC, {})),
+        use_status=bool(st.session_state.get(CONTROL_USE_STATUS, True)),
+        visible_states=list(st.session_state.get(CONTROL_VISIBLE_STATES, ["included", "review", "reference"])),
     )
     return apply_dataset_query(
         dataframe,
         query,
         row_key_series=_row_keys(dataframe),
-        status_map=st.session_state.get("onepiece_studio_control_status", {}),
+        status_map=st.session_state.get(CONTROL_STATUS, {}),
     )
 
 
@@ -664,24 +679,24 @@ def _query_description(query: dict[str, Any]) -> str:
 
 
 def _reset_filters(st: Any) -> None:
-    st.session_state["onepiece_studio_control_text_include"] = ""
-    st.session_state["onepiece_studio_control_text_exclude"] = ""
-    st.session_state["onepiece_studio_control_selected_facets"] = {}
-    st.session_state["onepiece_studio_control_numeric"] = {}
-    st.session_state["onepiece_studio_control_material_query"] = {}
-    st.session_state["onepiece_studio_control_fmax_max"] = None
-    st.session_state["onepiece_studio_control_visible_states"] = ["included", "review", "reference"]
-    st.session_state["onepiece_studio_control_drop_convergence"] = False
-    st.session_state["onepiece_studio_control_drop_test"] = False
+    st.session_state[CONTROL_TEXT_INCLUDE] = ""
+    st.session_state[CONTROL_TEXT_EXCLUDE] = ""
+    st.session_state[CONTROL_SELECTED_FACETS] = {}
+    st.session_state[CONTROL_NUMERIC] = {}
+    st.session_state[CONTROL_MATERIAL_QUERY] = {}
+    st.session_state[CONTROL_FMAX_MAX] = None
+    st.session_state[CONTROL_VISIBLE_STATES] = ["included", "review", "reference"]
+    st.session_state[CONTROL_DROP_CONVERGENCE] = False
+    st.session_state[CONTROL_DROP_TEST] = False
 
 
 def _set_text_filter(st: Any, *, include: str = "", exclude: str = "") -> None:
-    st.session_state["onepiece_studio_control_text_include"] = include
-    st.session_state["onepiece_studio_control_text_exclude"] = exclude
+    st.session_state[CONTROL_TEXT_INCLUDE] = include
+    st.session_state[CONTROL_TEXT_EXCLUDE] = exclude
 
 
 def _set_status_filter(st: Any, states: list[str]) -> None:
-    st.session_state["onepiece_studio_control_visible_states"] = states
+    st.session_state[CONTROL_VISIBLE_STATES] = states
 
 
 def _facet_columns(dataframe: pd.DataFrame) -> list[str]:
@@ -745,7 +760,7 @@ def _row_keys(dataframe: pd.DataFrame) -> pd.Series:
 
 
 def _status_table(st: Any, dataframe: pd.DataFrame) -> pd.DataFrame:
-    status = st.session_state.get("onepiece_studio_control_status", {})
+    status = st.session_state.get(CONTROL_STATUS, {})
     if not status:
         return pd.DataFrame()
     rows = []

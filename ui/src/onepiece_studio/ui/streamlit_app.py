@@ -12,6 +12,9 @@ from onepiece_studio.demo import demo_source, local_default_source
 from onepiece_studio.images import resolve_image
 from onepiece_studio.materials_columns import columns_for_profile, profile_names
 from onepiece_studio.schema import ColumnKind, infer_schema, safe_unique_count
+from onepiece_studio.state import (
+    PAGE_SIZE,
+)
 from onepiece_studio.ui.adsorption import render_adsorption_workbench
 from onepiece_studio.ui.controlroom import render_controlroom
 from onepiece_studio.ui.data_management import render_data_management
@@ -114,7 +117,7 @@ def _render_filters(st: Any, dataframe: pd.DataFrame, config: OnePieceStudioConf
             max_value=500,
             value=config.default_page_size,
             step=10,
-            key="onepiece_studio_page_size",
+            key=PAGE_SIZE,
         )
 
         categorical_columns = _categorical_columns(
@@ -389,7 +392,7 @@ def _render_table(
     *,
     total_rows: int,
 ) -> int | None:
-    page_size = int(st.session_state.get("onepiece_studio_page_size", config.default_page_size))
+    page_size = int(st.session_state.get(PAGE_SIZE, config.default_page_size))
     shown_rows = min(len(dataframe), page_size)
     st.caption(
         f"Showing {shown_rows:,} of {len(dataframe):,} filtered rows "

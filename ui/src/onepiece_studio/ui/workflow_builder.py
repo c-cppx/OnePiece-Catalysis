@@ -11,6 +11,9 @@ import pandas as pd
 from onepiece.adsorption import structure_columns_in_frame
 from onepiece.workflows import WorkflowResult, apply_operations
 from onepiece.workflows import apply_operation as backend_apply_operation
+from onepiece_studio.state import (
+    WORKFLOW_OPERATIONS,
+)
 
 WORKFLOW_GAS_LABELS = ("CO", "CO2", "CH3OH", "H2", "H2O")
 logger = logging.getLogger(__name__)
@@ -39,7 +42,7 @@ FILTER_OPERATORS = [
 
 
 def apply_workflow_operations(st: Any, dataframe: pd.DataFrame) -> WorkflowResult:
-    operations = st.session_state.get("onepiece_studio_workflow_operations", [])
+    operations = st.session_state.get(WORKFLOW_OPERATIONS, [])
     return apply_operations(dataframe, operations)
 
 
@@ -72,7 +75,7 @@ def render_workflow_builder(st: Any, source: pd.DataFrame, active: pd.DataFrame,
 
 
 def _init_state(st: Any) -> None:
-    st.session_state.setdefault("onepiece_studio_workflow_operations", [])
+    st.session_state.setdefault(WORKFLOW_OPERATIONS, [])
 
 
 def _render_pipeline_metrics(st: Any, source: pd.DataFrame, active: pd.DataFrame) -> None:
@@ -85,7 +88,7 @@ def _render_pipeline_metrics(st: Any, source: pd.DataFrame, active: pd.DataFrame
 
 
 def _render_beginner_guidance(st: Any, dataframe: pd.DataFrame) -> None:
-    operations = st.session_state.get("onepiece_studio_workflow_operations", [])
+    operations = st.session_state.get(WORKFLOW_OPERATIONS, [])
     if dataframe.empty:
         st.info(
             "Start by loading an HDF file or the bundled tutorial dataset from Data Sources. "
@@ -894,7 +897,7 @@ def _render_add_filter(st: Any, dataframe: pd.DataFrame, *, keep_as_flag: bool) 
 
 
 def _render_pipeline(st: Any) -> None:
-    operations = st.session_state.get("onepiece_studio_workflow_operations", [])
+    operations = st.session_state.get(WORKFLOW_OPERATIONS, [])
     if not operations:
         st.info("No workflow operations yet.")
         return
@@ -928,7 +931,7 @@ def _render_pipeline(st: Any) -> None:
         operations.pop(index)
         st.rerun()
     if controls[4].button("Clear all", width="stretch"):
-        st.session_state["onepiece_studio_workflow_operations"] = []
+        st.session_state[WORKFLOW_OPERATIONS] = []
         st.rerun()
 
     st.download_button(
@@ -947,7 +950,7 @@ def _render_preview(st: Any, source: pd.DataFrame, active: pd.DataFrame) -> None
     st.markdown("**Columns created by workflow**")
     created = [
         op.get("new_column")
-        for op in st.session_state.get("onepiece_studio_workflow_operations", [])
+        for op in st.session_state.get(WORKFLOW_OPERATIONS, [])
         if op.get("new_column") in active.columns and op.get("new_column") not in source.columns
     ]
     if created:
@@ -973,7 +976,7 @@ def _append_operation(st: Any, operation: dict[str, Any] | None) -> None:
     operation = dict(operation)
     operation["enabled"] = True
     operation["created_at"] = datetime.now().isoformat(timespec="seconds")
-    st.session_state.setdefault("onepiece_studio_workflow_operations", []).append(operation)
+    st.session_state.setdefault(WORKFLOW_OPERATIONS, []).append(operation)
 
 
 def _append_operations(st: Any, operations: list[dict[str, Any]]) -> None:
