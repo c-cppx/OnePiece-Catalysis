@@ -17,6 +17,23 @@ docs. Target users: grad students in computational catalysis.
   byte-identical, never-packaged copy of `ui/src/onepiece_studio/` (~5k
   lines). `ui/src` is now the single source of truth.
 
+## Phase 1 — completed 2026-06-10
+
+1. `54433ba` One HDF read path (`onepiece.sources.core.read_hdf_path`);
+   UI `HDFSource` delegates to it. Helper-interpreter fallback deleted;
+   NumPy pickle shim documented in `onepiece._compat`; wrong-key errors
+   list the file's actual keys; regression tests added. Test suite runs
+   ~2.5x faster (no subprocess per HDF read).
+2. `77559ff` Versions come from package metadata (`__version__` on both
+   packages, CLI `--version`).
+3. `046c0e4` Formula helpers deduplicated (three copies → one in
+   `onepiece.adsorption`; the UI copies were dead code).
+4. `d3cfc9b` Shared session-state keys centralized in
+   `onepiece_studio.state`.
+5. `17cd264` CI repaired: installs both packages (was silently relying
+   on the deleted duplicate via PYTHONPATH), matrix extended to
+   Python 3.13/3.14, ui/src linted, release_check.py fixed the same way.
+
 ## Audit findings
 
 ### Backend (`src/onepiece`, ~10k lines)
