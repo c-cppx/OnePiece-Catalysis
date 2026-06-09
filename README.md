@@ -308,7 +308,7 @@ PFUI/
 ├── pyproject.toml            # onepiece backend package
 ├── ui/pyproject.toml         # onepiece-studio frontend package
 ├── src/onepiece/             # backend code
-├── src/onepiece_studio/      # frontend code
+├── ui/src/onepiece_studio/   # frontend code
 ├── tests/                    # package tests
 ├── docs/                     # Sphinx documentation and reports
 └── notebooks/                # worked examples and analysis notebooks
