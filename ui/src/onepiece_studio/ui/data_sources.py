@@ -64,6 +64,60 @@ def apply_data_sources(
     return apply_session_edits(st, _combined_active_database(st, base, source_name=source_name, source_path=source_path))
 
 
+def render_data_overview(
+    st: Any,
+    base: pd.DataFrame,
+    active: pd.DataFrame,
+    schema: list[Any],
+    *,
+    title: str,
+    source_name: str,
+    source_path: str = "base",
+) -> None:
+    """Render the Data page body: onboarding, source manager, and schema."""
+    st.title(title)
+    st.caption(f"{len(base):,} base records from {source_name}")
+    _render_session_onboarding(st, active)
+    render_data_source_manager(
+        st,
+        base,
+        source_name,
+        source_path=source_path,
+        expanded=active.empty,
+    )
+    with st.expander("Schema", expanded=False):
+        _render_schema(st, schema)
+
+
+def _render_session_onboarding(st: Any, dataframe: pd.DataFrame) -> None:
+    if not dataframe.empty:
+        return
+    with st.container(border=True):
+        st.markdown("**Welcome to OnePiece Studio**")
+        st.caption(
+            "This session is empty on purpose. Load the bundled tutorial dataset or your own HDF file from "
+            "`Data Sources`, then use `Workflow` to derive adsorption, Gibbs, charge, or geometry columns."
+        )
+        st.caption(
+            "Good first path for new catalysis users: 1) load the bundled tutorial dataset, "
+            "2) add `Adsorption + Gibbs analysis starter`, 3) inspect `Records`, 4) compare candidates in `Visualize`."
+        )
+
+
+def _render_schema(st: Any, schema: list[Any]) -> None:
+    rows = [
+        {
+            "column": column.name,
+            "kind": column.kind.value,
+            "nullable": column.nullable,
+            "unique_count": column.unique_count,
+            "sample": str(column.sample)[:160],
+        }
+        for column in schema
+    ]
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
+
 def render_data_source_manager(
     st: Any,
     base: pd.DataFrame,

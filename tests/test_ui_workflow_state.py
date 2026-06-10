@@ -5,8 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 from ase import Atoms
-
-from onepiece.adsorption import add_element_count_columns, get_all_elements
 from onepiece_studio.ui.controlroom import _available_elements, _clamp_float, _filter_text
 from onepiece_studio.ui.data_management import (
     _build_project_payload,
@@ -26,7 +24,7 @@ from onepiece_studio.ui.data_sources import (
     restore_source_descriptors,
     source_descriptors,
 )
-from onepiece_studio.ui.streamlit_app import (
+from onepiece_studio.ui.visualize import (
     _chart_interpretation,
     _chart_presets,
     _column_plot_label,
@@ -50,6 +48,8 @@ from onepiece_studio.ui.workflow_builder import (
     _valid_new_column,
     _workflow_gas_reference_values,
 )
+
+from onepiece.adsorption import add_element_count_columns, get_all_elements
 
 
 class DummyStreamlit:
