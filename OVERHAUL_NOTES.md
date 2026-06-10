@@ -34,6 +34,20 @@ docs. Target users: grad students in computational catalysis.
    on the deleted duplicate via PYTHONPATH), matrix extended to
    Python 3.13/3.14, ui/src linted, release_check.py fixed the same way.
 
+## Phase 2 — completed 2026-06-10
+
+1. `4626b11` Welcome screen: bare `onepiece-studio` opens tutorial /
+   open-file / upload / recent-files page instead of an empty session.
+   Fixed two pre-existing crashes the bundled tutorial dataset triggered
+   (duplicate Name index labels broke `apply_dataset_query` and the
+   record-detail panel) — `onepiece-studio tutorial` was broken before this.
+2. `3dbc335` Friendly failure screens: CLI hdf launches and mid-session
+   load failures show actionable errors with key-retry, not tracebacks.
+3. PyTables stays required (see roadmap note).
+4. `95ad4bc` CONTRIBUTING.md (layout, setup, NTFS pitfall, conventions);
+   README leads with the bare launch.
+5. `8ca1404` CLI doctor/qa output colored on TTYs (side request).
+
 ## Audit findings
 
 ### Backend (`src/onepiece`, ~10k lines)
