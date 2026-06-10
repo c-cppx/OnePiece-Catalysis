@@ -48,6 +48,29 @@ docs. Target users: grad students in computational catalysis.
    README leads with the bare launch.
 5. `8ca1404` CLI doctor/qa output colored on TTYs (side request).
 
+## Phase 3 — completed 2026-06-10
+
+1. `e27c5eb` Multi-page `st.navigation` app replacing the 7-tab wall, grouped
+   Data / Explore / Analyze / Advanced; "Controlroom" renamed "Filter";
+   session pipeline computable without rendering; file loads cached.
+2. `b22f6ed` workflow_builder.py split 1414 → 244 lines: pure computation in
+   `workflow_logic.py` (Streamlit-free), Add Operation tab in
+   `workflow_steps.py`, Notebook Automation tab in `workflow_automation.py`
+   (the 478-line render function is now a dispatcher plus one function per
+   block), shared state helpers in `workflow_session.py`. Compat re-exports
+   keep existing tests and desktop scripts working; three dead `_parse_*`
+   helpers removed.
+3. `6f6c1dd` controlroom.py split 848 → 484 lines: filter computation goes
+   through `apply_controlroom_filters` with no duplicated logic in the
+   rendering module; 4 new backend tests (156 total).
+4. `18d7cb9` streamlit_app.py slimmed 945 → 252 lines: app setup, navigation
+   wiring, sidebar summary, and CLI entry only; page bodies live in the
+   per-page modules.
+
+Phases 1–2 were run interactively; Phase 3 tasks 2–4 above were executed by
+the agent harness (`.harness/`), each gated by verification (ruff + full
+suite) and a skeptical evaluator session — all three passed.
+
 ## Audit findings
 
 ### Backend (`src/onepiece`, ~10k lines)
