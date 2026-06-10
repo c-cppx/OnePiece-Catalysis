@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import platform
 import subprocess  # nosec B404
 import sys
@@ -14,6 +15,30 @@ from onepiece import (
     format_self_test_result,
     run_catalysis_hub_self_test,
 )
+
+_STATUS_COLORS = {
+    "[PASS]": "\033[32m",
+    "[FAIL]": "\033[1;31m",
+    "[WARN]": "\033[33m",
+    "[INFO]": "\033[36m",
+}
+_RESET = "\033[0m"
+
+
+def _use_color() -> bool:
+    # https://no-color.org/ convention, plus only color real terminals so
+    # piped output and CI logs stay plain.
+    if os.environ.get("NO_COLOR"):
+        return False
+    return sys.stdout.isatty()
+
+
+def _colorize_status_tags(text: str) -> str:
+    if not _use_color():
+        return text
+    for tag, code in _STATUS_COLORS.items():
+        text = text.replace(tag, f"{code}{tag}{_RESET}")
+    return text
 
 
 def _studio_version() -> str:
@@ -48,12 +73,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "qa":
         result = run_catalysis_hub_self_test(args.dataset)
-        print(format_self_test_result(result))
+        print(_colorize_status_tags(format_self_test_result(result)))
         return 0 if result.passed else 1
 
     if args.command == "doctor":
         report = _installation_report()
-        print(report)
+        print(_colorize_status_tags(report))
         return 0 if "[FAIL]" not in report else 1
 
     if args.command in {None, "demo", "tutorial", "hdf"}:
