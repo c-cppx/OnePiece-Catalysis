@@ -51,27 +51,41 @@ SOURCE_STATE_KEY = "onepiece_studio_extra_hdf_sources"
 LAST_CRAWL_SUMMARY_KEY = "onepiece_studio_last_crawl_summary"
 
 
-def render_data_source_manager(
+def apply_data_sources(
     st: Any,
     base: pd.DataFrame,
     source_name: str,
     *,
     source_path: str = "base",
 ) -> pd.DataFrame:
+    """Build the active database from session state without rendering anything."""
+    _init_state(st)
+    init_workbook_state(st)
+    return apply_session_edits(st, _combined_active_database(st, base, source_name=source_name, source_path=source_path))
+
+
+def render_data_source_manager(
+    st: Any,
+    base: pd.DataFrame,
+    source_name: str,
+    *,
+    source_path: str = "base",
+    expanded: bool = False,
+) -> pd.DataFrame:
     """Render session-level HDF source management and return the active database."""
     _init_state(st)
     init_workbook_state(st)
 
-    with st.expander("Data Sources", expanded=False):
+    with st.expander("Data Sources", expanded=expanded):
         st.caption(
             "Add local OnePiece/pandas HDF files to this session. Active sources are "
-            "merged before Workflow and Controlroom, so Controlroom filters define the "
-            "database used by the following tabs."
+            "merged before the Workflow and Filter steps, so your filters define the "
+            "database used by every other page."
         )
         _render_add_sources(st)
         _render_source_table(st, base, source_name, source_path=source_path)
 
-    return apply_session_edits(st, _combined_active_database(st, base, source_name=source_name, source_path=source_path))
+    return apply_data_sources(st, base, source_name, source_path=source_path)
 
 
 def _init_state(st: Any) -> None:

@@ -51,7 +51,7 @@ performance = [
 ]
 studio = [
   "pillow>=10.0",
-  "streamlit>=1.35",
+  "streamlit>=1.36",
   "plotly>=5.20",
   "polars>=1.0",
   "matplotlib>=3.8",
@@ -63,7 +63,7 @@ dev = [
   "pytest>=8.0",
   "ruff>=0.4",
   "pillow>=10.0",
-  "streamlit>=1.35",
+  "streamlit>=1.36",
   "plotly>=5.20",
   "polars>=1.0",
   "matplotlib>=3.8",

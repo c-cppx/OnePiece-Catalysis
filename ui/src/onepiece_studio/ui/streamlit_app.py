@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from onepiece_studio.adapters import DatabaseSource
+from onepiece_studio.adapters import DatabaseSource, load_source_cached
 from onepiece_studio.config import OnePieceStudioConfig
 from onepiece_studio.demo import demo_source, local_default_source
 from onepiece_studio.images import resolve_image
@@ -16,9 +16,9 @@ from onepiece_studio.state import (
     PAGE_SIZE,
 )
 from onepiece_studio.ui.adsorption import render_adsorption_workbench
-from onepiece_studio.ui.controlroom import render_controlroom
+from onepiece_studio.ui.controlroom import apply_controlroom_filters, render_controlroom
 from onepiece_studio.ui.data_management import render_data_management
-from onepiece_studio.ui.data_sources import render_data_source_manager
+from onepiece_studio.ui.data_sources import apply_data_sources, render_data_source_manager
 from onepiece_studio.ui.row_actions import (
     is_atoms,
     open_atoms_in_ase,
@@ -35,7 +35,7 @@ def run_app(source: DatabaseSource, config: OnePieceStudioConfig) -> None:
     _inject_styles(st)
 
     try:
-        base_dataframe = source.load()
+        base_dataframe = load_source_cached(source)
     except Exception as exc:
         st.error(
             f"**Could not load the dataset for this session.**\n\n{exc}\n\n"
@@ -46,20 +46,72 @@ def run_app(source: DatabaseSource, config: OnePieceStudioConfig) -> None:
         st.stop()
         return
 
+    page_functions = build_page_functions(st, source, config, base_dataframe)
+    filtered = page_functions.pop("_filtered_count")
+    total = page_functions.pop("_total_count")
+
+    with st.sidebar:
+        st.markdown(f"**{config.title}**")
+        st.caption(f"{filtered:,} of {total:,} records selected")
+
+    navigation = st.navigation(
+        {
+            "Data": [
+                st.Page(
+                    page_functions["data"], title="Data", icon=":material/database:", url_path="data", default=True
+                ),
+            ],
+            "Explore": [
+                st.Page(page_functions["filter"], title="Filter", icon=":material/filter_alt:", url_path="filter"),
+                st.Page(
+                    page_functions["records"], title="Records", icon=":material/table_rows:", url_path="records"
+                ),
+                st.Page(
+                    page_functions["visualize"],
+                    title="Visualize",
+                    icon=":material/monitoring:",
+                    url_path="visualize",
+                ),
+            ],
+            "Analyze": [
+                st.Page(
+                    page_functions["analyze"],
+                    title="Adsorption & Barriers",
+                    icon=":material/science:",
+                    url_path="adsorption",
+                ),
+                st.Page(
+                    page_functions["manage"], title="Manage & Export", icon=":material/inventory:", url_path="manage"
+                ),
+            ],
+            "Advanced": [
+                st.Page(
+                    page_functions["workflow"],
+                    title="Workflow Builder",
+                    icon=":material/account_tree:",
+                    url_path="workflow",
+                ),
+            ],
+        }
+    )
+    navigation.run()
+
+
+def build_page_functions(
+    st: Any,
+    source: DatabaseSource,
+    config: OnePieceStudioConfig,
+    base_dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    """Compute the session pipeline and return the per-page render callables.
+
+    Exposed separately from :func:`run_app` so tests can render each page
+    directly; the two count entries feed the sidebar summary.
+    """
     source_name = getattr(source, "display_name", source.name)
     source_path = str(getattr(source, "path", source_name))
-    st.title(config.title)
-    st.caption(f"{len(base_dataframe):,} base records from {source_name}")
 
-    dataframe = render_data_source_manager(
-        st,
-        base_dataframe,
-        str(source_name),
-        source_path=source_path,
-    )
-    st.caption(f"{len(dataframe):,} active source records before Workflow and Controlroom")
-    _render_session_onboarding(st, dataframe)
-
+    dataframe = apply_data_sources(st, base_dataframe, str(source_name), source_path=source_path)
     workflow = apply_workflow_operations(st, dataframe)
     workflow_dataframe = workflow.dataframe
     schema = infer_schema(
@@ -67,34 +119,26 @@ def run_app(source: DatabaseSource, config: OnePieceStudioConfig) -> None:
         image_columns=config.image_columns,
         structure_columns=config.structure_columns,
     )
+    filtered = apply_controlroom_filters(st, workflow_dataframe)
 
-    workflow_tab, controlroom_tab, data_tab, adsorption_tab, records_tab, charts_tab, schema_tab = st.tabs(
-        [
-            "Workflow",
-            "Controlroom",
-            "Data Management",
-            "Adsorption & Barriers",
-            "Records",
-            "Visualize",
-            "Schema",
-        ]
-    )
+    def data_page() -> None:
+        st.title(config.title)
+        st.caption(f"{len(base_dataframe):,} base records from {source_name}")
+        _render_session_onboarding(st, dataframe)
+        render_data_source_manager(
+            st,
+            base_dataframe,
+            str(source_name),
+            source_path=source_path,
+            expanded=dataframe.empty,
+        )
+        with st.expander("Schema", expanded=False):
+            _render_schema(st, schema)
 
-    with workflow_tab:
-        render_workflow_builder(st, dataframe, workflow_dataframe, workflow.messages)
+    def filter_page() -> None:
+        render_controlroom(st, workflow_dataframe)
 
-    with controlroom_tab:
-        controlroom = render_controlroom(st, workflow_dataframe)
-
-    filtered = controlroom.dataframe
-
-    with data_tab:
-        render_data_management(st, workflow_dataframe, filtered)
-
-    with adsorption_tab:
-        render_adsorption_workbench(st, filtered, filtered, reference_source=workflow_dataframe)
-
-    with records_tab:
+    def records_page() -> None:
         _render_metrics(st, filtered, config)
         table_column, detail_column = st.columns([0.68, 0.32], gap="large")
         with table_column:
@@ -114,11 +158,29 @@ def run_app(source: DatabaseSource, config: OnePieceStudioConfig) -> None:
             else:
                 st.info("No record selected.")
 
-    with charts_tab:
+    def visualize_page() -> None:
         _render_visualizations(st, filtered)
 
-    with schema_tab:
-        _render_schema(st, schema)
+    def analyze_page() -> None:
+        render_adsorption_workbench(st, filtered, filtered, reference_source=workflow_dataframe)
+
+    def manage_page() -> None:
+        render_data_management(st, workflow_dataframe, filtered)
+
+    def workflow_page() -> None:
+        render_workflow_builder(st, dataframe, workflow_dataframe, workflow.messages)
+
+    return {
+        "data": data_page,
+        "filter": filter_page,
+        "records": records_page,
+        "visualize": visualize_page,
+        "analyze": analyze_page,
+        "manage": manage_page,
+        "workflow": workflow_page,
+        "_filtered_count": len(filtered),
+        "_total_count": len(workflow_dataframe),
+    }
 
 
 def _render_filters(st: Any, dataframe: pd.DataFrame, config: OnePieceStudioConfig) -> pd.DataFrame:

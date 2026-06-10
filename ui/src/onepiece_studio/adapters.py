@@ -48,6 +48,41 @@ class HDFSource:
         return self.name or Path(self.path).name
 
 
+def load_source_cached(source: DatabaseSource) -> pd.DataFrame:
+    """Load a source, caching file-backed reads across Streamlit reruns.
+
+    The cache key includes the file's mtime, so an updated file is reread.
+    Falls back to a plain load for in-memory sources and unreadable paths
+    (those raise their friendly error inside ``load``).
+    """
+    path = getattr(source, "path", None)
+    if path is None:
+        return source.load()
+    resolved = Path(path)
+    try:
+        mtime_ns = resolved.stat().st_mtime_ns
+    except OSError:
+        return source.load()
+    key = str(getattr(source, "key", "df"))
+    return _cached_read(str(resolved), key, mtime_ns).copy()
+
+
+_CACHED_READ_IMPL = None
+
+
+def _cached_read(path: str, key: str, mtime_ns: int) -> pd.DataFrame:
+    global _CACHED_READ_IMPL
+    if _CACHED_READ_IMPL is None:
+        import streamlit as st
+
+        @st.cache_resource(max_entries=4, show_spinner="Loading dataset...")
+        def _read(path: str, key: str, mtime_ns: int) -> pd.DataFrame:
+            return read_hdf_path(Path(path), key=key)
+
+        _CACHED_READ_IMPL = _read
+    return _CACHED_READ_IMPL(path, key, mtime_ns)
+
+
 @dataclass(slots=True)
 class OnePieceSource:
     """Adapter for OnePiece-like objects without coupling OnePiece Studio to one API."""

@@ -12,6 +12,22 @@ def _welcome_app() -> None:
     run_welcome()
 
 
+def _all_pages_app() -> None:
+    import streamlit as st
+    from onepiece_studio.adapters import HDFSource, load_source_cached
+    from onepiece_studio.ui.streamlit_app import build_page_functions
+    from onepiece_studio.ui.welcome import standard_hdf_config
+
+    from onepiece import bundled_catalysis_hub_dataset
+
+    source = HDFSource(bundled_catalysis_hub_dataset(), key="df")
+    config = standard_hdf_config("All pages probe")
+    pages = build_page_functions(st, source, config, load_source_cached(source))
+    for name in ["data", "filter", "records", "visualize", "analyze", "manage", "workflow"]:
+        st.header(f"probe:{name}")
+        pages[name]()
+
+
 def test_apply_dataset_query_handles_duplicate_index_labels() -> None:
     frame = pd.DataFrame(
         {"E": [1.0, 2.0, 3.0]},
@@ -37,6 +53,15 @@ def test_welcome_page_renders_tutorial_and_open_actions() -> None:
     assert "Open file" in labels
 
 
+def test_every_workbench_page_renders_with_tutorial_dataset() -> None:
+    app = AppTest.from_function(_all_pages_app, default_timeout=180)
+    app.run()
+
+    assert not app.exception, [e.value for e in app.exception]
+    rendered = [h.value for h in app.header if str(h.value).startswith("probe:")]
+    assert len(rendered) == 7
+
+
 def test_welcome_wrong_key_shows_recovery_panel_and_retry_works(tmp_path) -> None:
     from onepiece_studio.state import WELCOME_SELECTION
 
@@ -58,7 +83,7 @@ def test_welcome_wrong_key_shows_recovery_panel_and_retry_works(tmp_path) -> Non
 
     assert not app.exception
     assert not app.error
-    assert "Controlroom" in [t.label for t in app.tabs]
+    assert "records selected" in app.sidebar.caption[0].value
 
 
 def test_welcome_tutorial_click_opens_workbench() -> None:
@@ -71,5 +96,7 @@ def test_welcome_tutorial_click_opens_workbench() -> None:
 
     assert not app.exception
     assert not app.error
+    # The default Data page renders the workbench title and the sidebar
+    # shows the pipeline summary, proving the full app booted.
     assert [t.value for t in app.title] == ["OnePiece Studio Tutorial Dataset"]
-    assert "Controlroom" in [t.label for t in app.tabs]
+    assert "records selected" in app.sidebar.caption[0].value

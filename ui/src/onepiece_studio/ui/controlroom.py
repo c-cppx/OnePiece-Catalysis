@@ -42,13 +42,19 @@ class ControlroomResult:
     summary: dict[str, Any]
 
 
+def apply_controlroom_filters(st: Any, dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Apply the session's filters without rendering anything."""
+    _init_state(st, dataframe)
+    return _apply_controlroom_filters(st, dataframe)
+
+
 def render_controlroom(st: Any, dataframe: pd.DataFrame) -> ControlroomResult:
     _init_state(st, dataframe)
 
-    st.subheader("Controlroom")
+    st.subheader("Filter")
     st.caption(
-        "Build the active database view from local OnePiece/pandas rows. "
-        "The resulting filter is used by Records and Visualize."
+        "Build the active database view from your rows. "
+        "The resulting selection is used by Records, Visualize, and Analyze."
     )
 
     left, right = st.columns([0.34, 0.66], gap="large")
