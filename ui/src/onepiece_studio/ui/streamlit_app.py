@@ -6,7 +6,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from onepiece_studio.adapters import DatabaseSource, load_source_cached
+from onepiece_studio.adapters import (
+    DatabaseSource,
+    apply_controlroom_filters,
+    load_source_cached,
+)
 from onepiece_studio.config import OnePieceStudioConfig
 from onepiece_studio.demo import demo_source, local_default_source
 from onepiece_studio.images import resolve_image
@@ -16,7 +20,7 @@ from onepiece_studio.state import (
     PAGE_SIZE,
 )
 from onepiece_studio.ui.adsorption import render_adsorption_workbench
-from onepiece_studio.ui.controlroom import apply_controlroom_filters, render_controlroom
+from onepiece_studio.ui.controlroom import render_controlroom
 from onepiece_studio.ui.data_management import render_data_management
 from onepiece_studio.ui.data_sources import apply_data_sources, render_data_source_manager
 from onepiece_studio.ui.row_actions import (

@@ -7,7 +7,22 @@ from typing import Any, Protocol, runtime_checkable
 import pandas as pd
 
 from onepiece.frame_utils import ensure_name_index
+from onepiece.services import DatasetQuery, apply_dataset_query
 from onepiece.sources.core import read_hdf_path
+from onepiece_studio.state import (
+    CONTROL_DROP_CONVERGENCE,
+    CONTROL_DROP_TEST,
+    CONTROL_FMAX_MAX,
+    CONTROL_MATERIAL_QUERY,
+    CONTROL_NUMERIC,
+    CONTROL_ROW_KEY,
+    CONTROL_SELECTED_FACETS,
+    CONTROL_STATUS,
+    CONTROL_TEXT_EXCLUDE,
+    CONTROL_TEXT_INCLUDE,
+    CONTROL_USE_STATUS,
+    CONTROL_VISIBLE_STATES,
+)
 
 
 @runtime_checkable
@@ -81,6 +96,59 @@ def _cached_read(path: str, key: str, mtime_ns: int) -> pd.DataFrame:
 
         _CACHED_READ_IMPL = _read
     return _CACHED_READ_IMPL(path, key, mtime_ns)
+
+
+def row_key_from_row(row: pd.Series, fallback: Any) -> str:
+    """Stable identity key for one row, matching :func:`row_keys`."""
+    if "source_hdf" in row.index and "source_row" in row.index:
+        return f"{row['source_hdf']}::{row['source_row']}"
+    return str(fallback)
+
+
+def row_keys(dataframe: pd.DataFrame) -> pd.Series:
+    """Stable per-row identity keys shared by filters, statuses, and edits."""
+    if {"source_hdf", "source_row"}.issubset(dataframe.columns):
+        return dataframe["source_hdf"].astype(str) + "::" + dataframe["source_row"].astype(str)
+    return pd.Series(dataframe.index.astype(str), index=dataframe.index)
+
+
+def ensure_controlroom_state(st: Any, dataframe: pd.DataFrame) -> None:
+    """Seed the Filter-page session-state keys with their defaults."""
+    st.session_state.setdefault(CONTROL_TEXT_INCLUDE, "")
+    st.session_state.setdefault(CONTROL_TEXT_EXCLUDE, "")
+    st.session_state.setdefault(CONTROL_USE_STATUS, True)
+    st.session_state.setdefault(CONTROL_STATUS, {})
+    st.session_state.setdefault(CONTROL_SELECTED_FACETS, {})
+    st.session_state.setdefault(CONTROL_NUMERIC, {})
+    st.session_state.setdefault(CONTROL_MATERIAL_QUERY, {})
+    st.session_state.setdefault(CONTROL_FMAX_MAX, None)
+    st.session_state.setdefault(CONTROL_DROP_CONVERGENCE, False)
+    st.session_state.setdefault(CONTROL_DROP_TEST, False)
+    if CONTROL_ROW_KEY not in st.session_state:
+        st.session_state[CONTROL_ROW_KEY] = row_keys(dataframe)
+
+
+def apply_controlroom_filters(st: Any, dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Apply the session's Filter-page selections without rendering anything."""
+    ensure_controlroom_state(st, dataframe)
+    query = DatasetQuery(
+        text_include=st.session_state.get(CONTROL_TEXT_INCLUDE, ""),
+        text_exclude=st.session_state.get(CONTROL_TEXT_EXCLUDE, ""),
+        drop_convergence=bool(st.session_state.get(CONTROL_DROP_CONVERGENCE, True)),
+        drop_test=bool(st.session_state.get(CONTROL_DROP_TEST, True)),
+        materials=dict(st.session_state.get(CONTROL_MATERIAL_QUERY, {})),
+        selected_facets=dict(st.session_state.get(CONTROL_SELECTED_FACETS, {})),
+        fmax_max=st.session_state.get(CONTROL_FMAX_MAX),
+        numeric_ranges=dict(st.session_state.get(CONTROL_NUMERIC, {})),
+        use_status=bool(st.session_state.get(CONTROL_USE_STATUS, True)),
+        visible_states=list(st.session_state.get(CONTROL_VISIBLE_STATES, ["included", "review", "reference"])),
+    )
+    return apply_dataset_query(
+        dataframe,
+        query,
+        row_key_series=row_keys(dataframe),
+        status_map=st.session_state.get(CONTROL_STATUS, {}),
+    )
 
 
 @dataclass(slots=True)

@@ -192,14 +192,14 @@ def apply_materials_search(dataframe: pd.DataFrame, query: dict[str, Any]) -> pd
 
     natoms = query.get("natoms")
     if natoms:
-        atom_counts = _row_atom_counts(active)
+        atom_counts = row_atom_counts(active)
         if _range_is_restrictive(atom_counts, natoms):
             active = active[atom_counts.between(int(natoms[0]), int(natoms[1]), inclusive="both")]
             elements_by_row = elements_by_row.loc[active.index]
 
     record_types = query.get("record_types", [])
     if record_types:
-        record_labels = _record_type_series(active)
+        record_labels = record_type_series(active)
         active = active[record_labels.isin(record_types)]
         elements_by_row = elements_by_row.loc[active.index]
 
@@ -402,7 +402,13 @@ def _row_elements(dataframe: pd.DataFrame) -> pd.Series:
     )
 
 
-def _row_atom_counts(dataframe: pd.DataFrame) -> pd.Series:
+def row_element_counts(dataframe: pd.DataFrame) -> pd.Series:
+    """Return the number of distinct elements inferred for each row."""
+    return _row_elements(dataframe).map(len)
+
+
+def row_atom_counts(dataframe: pd.DataFrame) -> pd.Series:
+    """Return atom counts per row, from ``n_atoms`` or the row structures."""
     if "n_atoms" in dataframe.columns:
         return pd.to_numeric(dataframe["n_atoms"], errors="coerce")
     structure_columns = tuple(structure_columns_in_frame(dataframe))
@@ -445,7 +451,8 @@ def _looks_like_element(value: Any) -> bool:
     return bool(re.fullmatch(r"[A-Z][a-z]?", str(value)))
 
 
-def _record_type_series(dataframe: pd.DataFrame) -> pd.Series:
+def record_type_series(dataframe: pd.DataFrame) -> pd.Series:
+    """Classify each row as gas reference, clean surface, adsorbate, etc."""
     text = pd.Series("", index=dataframe.index)
     for column in ["Name", "Path", "dataset", "dataset_label"]:
         if column in dataframe.columns:
