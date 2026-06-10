@@ -95,8 +95,10 @@ docs. Target users: grad students in computational catalysis.
    pick a file, recent files list — instead of requiring subcommands.
 2. Friendly failure screens (bad HDF, wrong key, missing optional deps)
    with the fix spelled out.
-3. Evaluate making PyTables optional (parquet path doesn't need it) to
-   slim the default install.
+3. ~~Evaluate making PyTables optional~~ — evaluated 2026-06-10, decision:
+   **keep required**. The bundled tutorial dataset and the `qa` self-test
+   are HDF, and HDF is the group's primary format (20 call sites). Revisit
+   only if parquet becomes the default storage format.
 4. Contributor setup guide (incl. NTFS pitfall).
 
 ### Phase 3 — UI redesign (within Streamlit)
