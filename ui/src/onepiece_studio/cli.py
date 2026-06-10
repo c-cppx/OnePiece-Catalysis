@@ -10,7 +10,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _package_version
 from pathlib import Path
 
-from onepiece import (
+from onepiece.qa import (
     bundled_catalysis_hub_dataset,
     format_self_test_result,
     run_catalysis_hub_self_test,

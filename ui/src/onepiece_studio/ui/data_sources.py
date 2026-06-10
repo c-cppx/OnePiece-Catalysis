@@ -5,41 +5,45 @@ from typing import Any
 
 import pandas as pd
 
-from onepiece import (
+from onepiece.dftdataframe_import import (
+    crawl_root_to_frame as backend_crawl_root_to_frame,
+)
+from onepiece.dftdataframe_import import (
+    crawl_root_to_hdf as backend_crawl_root_to_hdf,
+)
+from onepiece.qa import bundled_catalysis_hub_dataset
+from onepiece.sources import (
     apply_import_options as backend_apply_import_options,
 )
-from onepiece import (
-    bundled_catalysis_hub_dataset,
+from onepiece.sources import (
+    combined_active_database as backend_combined_active_database,
+)
+from onepiece.sources import (
     detect_source_profile,
     source_profile_summary,
 )
-from onepiece import (
-    combined_active_database as backend_combined_active_database,
-)
-from onepiece import crawl_root_to_frame as backend_crawl_root_to_frame
-from onepiece import crawl_root_to_hdf as backend_crawl_root_to_hdf
-from onepiece import (
+from onepiece.sources import (
     detected_gas_reference_values as backend_detected_gas_reference_values,
 )
-from onepiece import (
+from onepiece.sources import (
     map_adsorption_columns as backend_map_adsorption_columns,
 )
-from onepiece import (
+from onepiece.sources import (
     prepare_source_frame as backend_prepare_source_frame,
 )
-from onepiece import (
+from onepiece.sources import (
     read_hdf_path as backend_read_hdf_path,
 )
-from onepiece import (
+from onepiece.sources import (
     read_uploaded_hdf as backend_read_uploaded_hdf,
 )
-from onepiece import (
+from onepiece.sources import (
     restore_source_descriptors as backend_restore_source_descriptors,
 )
-from onepiece import (
+from onepiece.sources import (
     source_descriptors as backend_source_descriptors,
 )
-from onepiece import (
+from onepiece.sources import (
     store_source as backend_store_source,
 )
 from onepiece_studio.state import (

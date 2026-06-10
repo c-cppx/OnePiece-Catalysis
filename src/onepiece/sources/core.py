@@ -7,9 +7,9 @@ from typing import Any
 
 import pandas as pd
 
-from onepiece import add_adsorption_energies, assign_surface_references
 from onepiece._compat import install_numpy_pickle_compat
 from onepiece._polars import dataframe_is_polars_safe, get_polars
+from onepiece.adsorption import add_adsorption_energies, assign_surface_references
 from onepiece.frame_utils import ensure_name_index
 from onepiece.storage import detect_storage_format, load_dataset
 
