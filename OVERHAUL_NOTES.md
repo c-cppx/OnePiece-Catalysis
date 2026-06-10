@@ -71,6 +71,30 @@ Phases 1–2 were run interactively; Phase 3 tasks 2–4 above were executed by
 the agent harness (`.harness/`), each gated by verification (ruff + full
 suite) and a skeptical evaluator session — all three passed.
 
+## Phase 4 — completed 2026-06-10
+
+1. `4e0ab2a` adsorption.py (1051 lines) split into a subpackage by concern:
+   `formulas.py` (stoichiometry, adsorbate detection), `references.py`
+   (gas/surface references, OnePiece HDF reading), `energies.py`
+   (adsorption-energy math and view), `copt.py` (constrained-optimization
+   paths). Code moved verbatim; `__init__.py` re-exports every public name,
+   so no caller changes; seam tests cover re-export completeness and a
+   per-module size budget.
+2. `4aced23` Top-level namespace curated from ~154 flat re-exports down to 15
+   core names grouped by task (load data, adsorption energetics,
+   thermochemistry, plotting). Every legacy export still importable via a
+   lazy `__getattr__` alias that emits a DeprecationWarning naming its
+   submodule home; `__dir__` keeps tab-completion to the curated set;
+   internal callers import from submodules so the library never warns at
+   itself. `test_public_api.py` freezes the legacy list as a contract.
+3. `d8eceb3` Every curated export now has a docstring with an example —
+   thirteen runnable doctests (bundled Catalysis-Hub tutorial data where
+   real data is needed) plus two code-block examples for names needing
+   external inputs. `test_docstring_examples.py` enforces this in CI.
+
+All three tasks executed by the harness, each evaluator-PASSed; suite grew
+156 → 308 tests, ruff clean throughout.
+
 ## Audit findings
 
 ### Backend (`src/onepiece`, ~10k lines)
