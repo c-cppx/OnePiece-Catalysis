@@ -30,7 +30,18 @@ def standard_hdf_config(title: str) -> OnePieceStudioConfig:
             "dataset_label",
             "source_hdf",
         ],
-        metric_columns=["E", "fmax", "a", "b", "c", "gamma", "timestamp"],
+        metric_columns=[
+            "E",
+            "fmax",
+            "formation_energy_per_atom",
+            "form_G_per_Area",
+            "form_G_per_alloy",
+            "a",
+            "b",
+            "c",
+            "gamma",
+            "timestamp",
+        ],
     )
 
 

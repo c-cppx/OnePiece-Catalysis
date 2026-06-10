@@ -37,6 +37,30 @@ def test_welcome_page_renders_tutorial_and_open_actions() -> None:
     assert "Open file" in labels
 
 
+def test_welcome_wrong_key_shows_recovery_panel_and_retry_works(tmp_path) -> None:
+    from onepiece_studio.state import WELCOME_SELECTION
+
+    hdf_path = tmp_path / "data.hdf"
+    pd.DataFrame({"Name": ["a"], "E": [1.0]}).to_hdf(hdf_path, key="results")
+
+    app = AppTest.from_function(_welcome_app, default_timeout=120)
+    app.session_state[WELCOME_SELECTION] = {"path": str(hdf_path), "key": "df"}
+    app.run()
+
+    assert not app.exception
+    assert app.error
+    assert "Available keys: results" in app.error[0].value
+
+    app.text_input[0].set_value("results")
+    retry = next(b for b in app.button if b.label == "Retry")
+    retry.click()
+    app.run()
+
+    assert not app.exception
+    assert not app.error
+    assert "Controlroom" in [t.label for t in app.tabs]
+
+
 def test_welcome_tutorial_click_opens_workbench() -> None:
     app = AppTest.from_function(_welcome_app, default_timeout=120)
     app.run()

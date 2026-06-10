@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from onepiece_studio.adapters import DatabaseSource, HDFSource
+from onepiece_studio.adapters import DatabaseSource
 from onepiece_studio.config import OnePieceStudioConfig
 from onepiece_studio.demo import demo_source, local_default_source
 from onepiece_studio.images import resolve_image
@@ -34,7 +34,17 @@ def run_app(source: DatabaseSource, config: OnePieceStudioConfig) -> None:
     st.set_page_config(page_title=config.title, page_icon="PF", layout="wide")
     _inject_styles(st)
 
-    base_dataframe = source.load()
+    try:
+        base_dataframe = source.load()
+    except Exception as exc:
+        st.error(
+            f"**Could not load the dataset for this session.**\n\n{exc}\n\n"
+            "If the file moved or changed, restart with "
+            "`onepiece-studio hdf /path/to/database.hdf --key df`, or run "
+            "`onepiece-studio doctor` to check your environment."
+        )
+        st.stop()
+        return
 
     source_name = getattr(source, "display_name", source.name)
     source_path = str(getattr(source, "path", source_name))
@@ -844,23 +854,17 @@ def _main() -> None:
         source, config = demo_source()
         run_app(source, config)
     elif args.hdf:
-        from onepiece_studio.ui.welcome import remember_recent_file
+        import streamlit as st
 
-        path = args.hdf
-        remember_recent_file(path, args.key)
-        source = HDFSource(path, key=args.key)
-        config = OnePieceStudioConfig(
-            title=args.title or f"OnePiece Studio: {source.display_name}",
-            primary_key="Name",
-            structure_columns=["struc"],
-            metric_columns=[
-                "E",
-                "formation_energy_per_atom",
-                "form_G_per_Area",
-                "form_G_per_alloy",
-            ],
+        from onepiece_studio.state import WELCOME_SELECTION
+        from onepiece_studio.ui.welcome import remember_recent_file, run_welcome
+
+        remember_recent_file(args.hdf, args.key)
+        st.session_state.setdefault(
+            WELCOME_SELECTION,
+            {"path": args.hdf, "key": args.key, "title": args.title},
         )
-        run_app(source, config)
+        run_welcome()
     else:
         source, config = local_default_source()
         if getattr(source, "name", "") == "empty-session":
