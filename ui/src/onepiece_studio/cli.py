@@ -50,7 +50,13 @@ def _studio_version() -> str:
 
 def main(argv: list[str] | None = None) -> int:
     prog_name = Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else "onepiece-studio"
-    parser = argparse.ArgumentParser(prog=prog_name)
+    parser = argparse.ArgumentParser(
+        prog=prog_name,
+        description=(
+            "Launch OnePiece Studio. With no command, opens a welcome page "
+            "where you can pick the tutorial dataset, a local file, or a recent file."
+        ),
+    )
     parser.add_argument("--version", action="version", version=f"onepiece-studio {_studio_version()}")
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("demo", help="Run the OnePiece Studio Streamlit demo.")

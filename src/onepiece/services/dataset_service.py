@@ -62,11 +62,14 @@ def apply_dataset_query(
 
     if normalized.get("use_status", True):
         allowed = set(normalized.get("visible_states", ["included", "review", "reference"]))
-        if row_key_series is None:
-            row_key_series = _fallback_row_keys(active)
         if status_map is None:
             status_map = {}
-        active_keys = row_key_series.loc[active.index]
+        if row_key_series is not None and active.index.is_unique:
+            active_keys = row_key_series.loc[active.index]
+        else:
+            # With duplicate index labels, .loc would return more rows than
+            # active has; rebuild the keys from the surviving rows instead.
+            active_keys = _fallback_row_keys(active)
         keep = active_keys.map(lambda key: status_map.get(key, "included") in allowed)
         active = active[keep.to_numpy()]
 

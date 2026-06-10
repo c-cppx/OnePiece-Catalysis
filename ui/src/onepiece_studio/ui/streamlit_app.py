@@ -96,7 +96,11 @@ def run_app(source: DatabaseSource, config: OnePieceStudioConfig) -> None:
             if selected_index is None and not filtered.empty:
                 selected_index = filtered.index[0]
             if selected_index is not None:
-                _render_detail(st, workflow_dataframe.loc[selected_index], schema, config)
+                selected_row = workflow_dataframe.loc[selected_index]
+                if isinstance(selected_row, pd.DataFrame):
+                    # Duplicate index labels return a frame; show the first match.
+                    selected_row = selected_row.iloc[0]
+                _render_detail(st, selected_row, schema, config)
             else:
                 st.info("No record selected.")
 
@@ -840,7 +844,10 @@ def _main() -> None:
         source, config = demo_source()
         run_app(source, config)
     elif args.hdf:
+        from onepiece_studio.ui.welcome import remember_recent_file
+
         path = args.hdf
+        remember_recent_file(path, args.key)
         source = HDFSource(path, key=args.key)
         config = OnePieceStudioConfig(
             title=args.title or f"OnePiece Studio: {source.display_name}",
@@ -856,7 +863,12 @@ def _main() -> None:
         run_app(source, config)
     else:
         source, config = local_default_source()
-        run_app(source, config)
+        if getattr(source, "name", "") == "empty-session":
+            from onepiece_studio.ui.welcome import run_welcome
+
+            run_welcome()
+        else:
+            run_app(source, config)
 
 
 if __name__ == "__main__":

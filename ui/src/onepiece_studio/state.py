@@ -27,6 +27,9 @@ CONTROL_ROW_KEY = "onepiece_studio_control_row_key"
 CONTROL_MATERIAL_QUERY = "onepiece_studio_control_material_query"
 CONTROLROOM_ACTIVE_DATAFRAME = "onepiece_studio_controlroom_active_dataframe"
 
+# Welcome / launcher
+WELCOME_SELECTION = "onepiece_studio_welcome_selection"
+
 # Cross-cutting session data
 SAVED_VIEWS = "onepiece_studio_saved_views"
 AUDIT_LOG = "onepiece_studio_audit_log"
