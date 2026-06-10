@@ -156,6 +156,19 @@ def prepare_source_frame(frame: pd.DataFrame, *, label: str, path: str, source_i
 
 
 def read_dataset_path(path: Path, *, key: str = "df") -> pd.DataFrame:
+    """Read a dataset from any supported on-disk layout.
+
+    Detects the storage format (pandas HDF file, parquet dataset directory,
+    or manifest file) and dispatches to the right reader. The returned frame
+    always has a ``Name`` index.
+
+    Examples
+    --------
+    >>> import onepiece
+    >>> frame = onepiece.read_dataset_path(onepiece.bundled_catalysis_hub_dataset())
+    >>> len(frame)
+    133
+    """
     if not path.exists():
         raise FileNotFoundError(path)
     storage_format = detect_storage_format(path)
@@ -168,6 +181,23 @@ def read_dataset_path(path: Path, *, key: str = "df") -> pd.DataFrame:
 
 
 def read_hdf_path(path: Path, *, key: str, numpy_pickle_compat: bool = True) -> pd.DataFrame:
+    """Read a pandas HDF file into a ``Name``-indexed dataframe.
+
+    This is the canonical HDF entry point: it owns the friendly error
+    messages and the NumPy pickle-compatibility shim needed for files written
+    with older NumPy versions. Parquet dataset directories are accepted too
+    and routed through :func:`onepiece.load_dataset`.
+
+    Examples
+    --------
+    >>> import onepiece
+    >>> path = onepiece.bundled_catalysis_hub_dataset()
+    >>> frame = onepiece.read_hdf_path(path, key="df")
+    >>> "E" in frame.columns
+    True
+    >>> frame.index.name
+    'Name'
+    """
     if not path.exists():
         raise FileNotFoundError(
             f"Dataset file not found: {path}. Check the path; both pandas HDF "

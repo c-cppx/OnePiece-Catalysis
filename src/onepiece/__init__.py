@@ -25,6 +25,16 @@ documented submodules:
 Names that used to be re-exported here remain importable from the top level
 through deprecation aliases; new code should import them from the submodule
 named in the warning.
+
+Examples
+--------
+The bundled tutorial dataset works out of the box:
+
+>>> import onepiece
+>>> frame = onepiece.read_hdf_path(onepiece.bundled_catalysis_hub_dataset(), key="df")
+>>> analysed = onepiece.add_catalysis_hub_adsorption_energies(frame)
+>>> len(analysed["adsorption_energy"].dropna())
+9
 """
 
 import importlib as _importlib

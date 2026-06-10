@@ -26,7 +26,20 @@ NON_METAL_REFERENCE_ELEMENTS = {"C", "H", "O", "N"}
 
 @dataclass(frozen=True)
 class GasReferences:
-    """Gas-phase reference energies in eV from the same computational setup."""
+    """Gas-phase reference energies in eV from the same computational setup.
+
+    Species you do not supply default to ``nan``, and the energy columns that
+    depend on them simply stay empty.
+
+    Examples
+    --------
+    >>> from onepiece import GasReferences
+    >>> refs = GasReferences.from_mapping({"CO": -14.8, "H2": -6.8})
+    >>> refs.co
+    -14.8
+    >>> refs.ch3oh
+    nan
+    """
 
     co: float = np.nan
     co2: float = np.nan
@@ -274,7 +287,34 @@ def assign_references_before_merge(
     hdf_files: Mapping[str, Path | str],
     key: str = "df",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Read, reference-annotate, and then merge HDF sources."""
+    """Read, reference-annotate, and then merge HDF sources.
+
+    Each HDF file is read separately, every row gets its clean-surface
+    reference assigned (``surface_ref_name``, ``surface_ref_E``, ``delta_*``
+    stoichiometry columns) *within that source*, and only then are the
+    sources concatenated. Returns the combined frame and a table of the
+    chosen surface references.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> import pandas as pd
+    >>> import onepiece
+    >>> root = Path(tempfile.mkdtemp())
+    >>> pd.DataFrame({
+    ...     "Name": ["Cu211", "Cu211-CO"],
+    ...     "Formula": ["Cu36", "Cu36CO"],
+    ...     "E": [-100.0, -115.2],
+    ... }).to_hdf(root / "calcs.hdf", key="df")
+    >>> combined, references = onepiece.assign_references_before_merge(
+    ...     {"demo": root / "calcs.hdf"}
+    ... )
+    >>> combined.loc["Cu211-CO", "surface_ref_name"]
+    'Cu211'
+    >>> round(float(combined.loc["Cu211-CO", "delta_E_to_surface_eV"]), 1)
+    -15.2
+    """
     enriched_frames = []
     reference_frames = []
     for label, path in hdf_files.items():

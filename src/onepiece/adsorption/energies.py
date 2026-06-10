@@ -36,6 +36,25 @@ def add_adsorption_energies(
         * + CH3OH(g) -> CH3O* + 1/2 H2(g)
         E_ads,total = E(CH3O*) + 0.5 n E(H2) - E(*) - n E(CH3OH)
         E_ads,per adsorbate = E_ads,total / n
+
+    The frame needs ``adsorbate``, ``delta_C``, ``E``, and ``surface_ref_E``
+    columns, normally produced by
+    :func:`onepiece.assign_references_before_merge`.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import onepiece
+    >>> frame = pd.DataFrame({
+    ...     "Name": ["Cu211-CO"],
+    ...     "adsorbate": ["CO"],
+    ...     "delta_C": [1.0],
+    ...     "E": [-120.0],
+    ...     "surface_ref_E": [-104.0],
+    ... })
+    >>> out = onepiece.add_adsorption_energies(frame, {"CO": -14.8})
+    >>> round(float(out.loc[0, "E_ads_CO_eV"]), 2)
+    -1.2
     """
     refs = gas_references_ev if isinstance(gas_references_ev, GasReferences) else GasReferences.from_mapping(gas_references_ev)
     df = frame.copy()
@@ -165,6 +184,17 @@ def add_catalysis_hub_adsorption_energies(
 
     The function adds the necessary helper columns and compares the calculated
     value against the published `reactionEnergy` when that column is present.
+
+    Examples
+    --------
+    >>> import onepiece
+    >>> frame = onepiece.read_hdf_path(onepiece.bundled_catalysis_hub_dataset(), key="df")
+    >>> analysed = onepiece.add_catalysis_hub_adsorption_energies(frame)
+    >>> computed = analysed["adsorption_energy"].dropna()
+    >>> len(computed)
+    9
+    >>> round(float(computed.iloc[0]), 3)
+    -2.067
     """
     df = frame.copy()
     system_names = df.get(system_name_column, pd.Series("", index=df.index)).astype(str)
@@ -350,7 +380,19 @@ def _basis_multiplier(frame: pd.DataFrame, basis: str) -> pd.Series:
 
 
 def adsorption_view(frame: pd.DataFrame) -> pd.DataFrame:
-    """Return a focused adsorption-analysis table for UI or notebook use."""
+    """Return a focused adsorption-analysis table for UI or notebook use.
+
+    Keeps only the columns relevant to adsorption analysis (in a fixed order)
+    and, when an ``is_adsorbate`` column is present, only the adsorbate rows.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import onepiece
+    >>> frame = pd.DataFrame({"Name": ["Cu211-CO"], "E": [-120.0], "k_point_density": [40]})
+    >>> onepiece.adsorption_view(frame).columns.tolist()
+    ['Name', 'E']
+    """
     columns = [
         "dataset_label",
         "Name",
