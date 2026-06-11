@@ -54,7 +54,9 @@ from onepiece.adsorption import (
     adsorption_view,
     assign_references_before_merge,
 )
+from onepiece.ase_analysis import plot_row_metric_3d, plot_structure_value_3d, save_dataframe_metric_plots_3d
 from onepiece.dftdataframe_import import crawl_root_to_frame
+from onepiece.vasp import add_atomic_magnetic_moment_descriptors, add_atomic_reference_difference_descriptors
 from onepiece.ir import plot_adsorption_energy_vs_frequency
 from onepiece.qa import bundled_catalysis_hub_dataset
 from onepiece.sources import read_dataset_path, read_hdf_path
@@ -81,6 +83,12 @@ __all__ = [
     "gas_free_energy",
     # Plotting
     "plot_adsorption_energy_vs_frequency",
+    "plot_row_metric_3d",
+    "plot_structure_value_3d",
+    "save_dataframe_metric_plots_3d",
+    # Electronic descriptors
+    "add_atomic_magnetic_moment_descriptors",
+    "add_atomic_reference_difference_descriptors",
 ]
 
 # Names removed from the curated top level, mapped to their submodule home.
@@ -112,14 +120,19 @@ _DEPRECATED_ALIASES = {
             "adsorbate_surface_distance_summary",
             "classify_adsorption_site",
             "compare_structures_rmsd",
+            "CoordinationEnvironment",
             "compute_d_band_center",
             "compute_d_band_filling",
+            "coordination_environment",
             "coordination_numbers",
             "detect_adsorbate_desorption",
             "detect_adsorbate_dissociation",
             "detect_overlapping_atoms",
             "detect_unphysical_bonds",
             "generalized_coordination_numbers",
+            "plot_row_metric_3d",
+            "plot_structure_value_3d",
+            "save_dataframe_metric_plots_3d",
             "identify_surface_atom_indices",
             "infer_atomic_layers",
             "map_atoms_by_species_and_position",
@@ -228,6 +241,8 @@ _DEPRECATED_ALIASES = {
             "add_adsorbate_charge_descriptors",
             "add_atomic_charge_descriptors",
             "add_projected_dos_descriptors",
+            "add_atomic_magnetic_moment_descriptors",
+            "add_atomic_reference_difference_descriptors",
             "adsorbate_atom_indices_from_structures",
             "atomic_charge_long_table",
             "compute_atomic_charges",
