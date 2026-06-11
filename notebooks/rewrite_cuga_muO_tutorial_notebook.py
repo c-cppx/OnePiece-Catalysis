@@ -757,7 +757,7 @@ for old_id in stable_phase_ids:
 
 fig3d.update_layout(
     title="Stabile freie Energieflächen",
-    font=dict(family="Lucifer, system-ui, sans-serif"),
+    font=dict(family="system-ui, sans-serif"),
     scene=dict(
         xaxis_title="Temperatur T [K]",
         yaxis_title="log10(pH2O/pH2)",

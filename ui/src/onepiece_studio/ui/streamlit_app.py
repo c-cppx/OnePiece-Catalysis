@@ -165,7 +165,7 @@ def _inject_styles(st: Any) -> None:
         .stMarkdown, .stDataFrame, .stDataFrame *, h1, h2, h3, h4, h5, h6,
         [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stMetric"],
         [data-testid="stTabs"], [data-testid="stCaptionContainer"] {
-            font-family: "Lucifer", system-ui, sans-serif !important;
+            font-family: system-ui, sans-serif !important;
         }
         .material-icons, .material-symbols-rounded, .material-symbols-outlined,
         [data-testid="stExpanderToggleIcon"], [data-testid="stBaseButton-header"] span {

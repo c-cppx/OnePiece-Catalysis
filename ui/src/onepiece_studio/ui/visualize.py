@@ -72,8 +72,8 @@ def render_visualizations(st: Any, dataframe: pd.DataFrame) -> None:
                 )
             )
             fig.update_layout(
-                font_family="Lucifer",
-                title_font_family="Lucifer",
+                font_family="system-ui",
+                title_font_family="system-ui",
                 paper_bgcolor="white",
                 plot_bgcolor="white",
                 margin=dict(l=8, r=8, t=56, b=8),
@@ -107,8 +107,8 @@ def render_visualizations(st: Any, dataframe: pd.DataFrame) -> None:
                 color_discrete_sequence=["#d33f49"],
             )
             fig.update_layout(
-                font_family="Lucifer",
-                title_font_family="Lucifer",
+                font_family="system-ui",
+                title_font_family="system-ui",
                 paper_bgcolor="white",
                 plot_bgcolor="white",
                 margin=dict(l=8, r=8, t=56, b=8),
