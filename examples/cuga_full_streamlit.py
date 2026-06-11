@@ -8,9 +8,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from onepiece_studio import DataFrameSource, OnePieceStudioConfig
 from onepiece_studio.materials_columns import enrich_materials_dataframe
 from onepiece_studio.ui.streamlit_app import run_app
+
+from onepiece_studio import DataFrameSource, OnePieceStudioConfig
 
 DATA_ROOT = Path(
     "/Users/dk2994/Desktop/Uni/Journal/Thesis/Notebooks/Surface Alloys"

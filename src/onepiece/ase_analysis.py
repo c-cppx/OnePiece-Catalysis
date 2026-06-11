@@ -11,6 +11,7 @@ from ase import Atoms
 from ase.data import atomic_numbers, covalent_radii
 from ase.neighborlist import NeighborList, natural_cutoffs
 
+from onepiece._compat import trapezoid
 from onepiece.adsorption import assign_surface_references, primary_structure
 from onepiece.vasp import (
     DoscarData,
@@ -315,10 +316,10 @@ def compute_d_band_center(
     if not mask.any():
         return float("nan")
     weights = signal[mask]
-    norm = float(np.trapz(weights, energies[mask]))
+    norm = float(trapezoid(weights, energies[mask]))
     if abs(norm) < 1e-12:
         return float("nan")
-    return float(np.trapz(energies[mask] * weights, energies[mask]) / norm)
+    return float(trapezoid(energies[mask] * weights, energies[mask]) / norm)
 
 
 def compute_d_band_filling(
@@ -334,10 +335,10 @@ def compute_d_band_filling(
     occupied_mask = _window_mask(energies, (energy_window[0], min(energy_window[1], 0.0)))
     if not occupied_mask.any():
         return 0.0
-    occupied = float(np.trapz(signal[occupied_mask], energies[occupied_mask]))
+    occupied = float(trapezoid(signal[occupied_mask], energies[occupied_mask]))
     if not normalize:
         return occupied
-    total = float(np.trapz(signal[total_mask], energies[total_mask])) if total_mask.any() else 0.0
+    total = float(trapezoid(signal[total_mask], energies[total_mask])) if total_mask.any() else 0.0
     if abs(total) < 1e-12:
         return float("nan")
     return float(occupied / total)

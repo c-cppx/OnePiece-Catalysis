@@ -18,6 +18,21 @@ class SelfTestResult:
 
 
 def bundled_catalysis_hub_dataset() -> Path:
+    """Return the path to the bundled Catalysis-Hub CO2 tutorial dataset.
+
+    The dataset ships inside the package, so it is always available — use it
+    to try the adsorption workflow before pointing OnePiece at your own data.
+
+    Examples
+    --------
+    >>> import onepiece
+    >>> path = onepiece.bundled_catalysis_hub_dataset()
+    >>> path.name
+    'catalysis_hub_co2_subset.hdf'
+    >>> frame = onepiece.read_hdf_path(path, key="df")
+    >>> len(frame)
+    133
+    """
     resource = files("onepiece.data").joinpath("catalysis_hub_co2_subset.hdf")
     with as_file(resource) as local_path:
         return Path(local_path)

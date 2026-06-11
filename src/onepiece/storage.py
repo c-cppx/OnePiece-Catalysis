@@ -86,6 +86,25 @@ def save_dataset(
     source_path: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Path:
+    """Persist a dataframe as a managed dataset and return its manifest path.
+
+    The dataset is written under ``config``'s directory layout as parquet
+    (default) or HDF, together with a ``manifest.json`` describing the schema.
+    Columns holding Python objects (for example ASE ``Atoms``) go to a pickle
+    sidecar so the tabular file stays portable.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> import pandas as pd
+    >>> import onepiece
+    >>> from onepiece.storage import resolve_storage_config
+    >>> frame = pd.DataFrame({"Name": ["Cu211", "Cu211-CO"], "E": [-100.0, -115.2]})
+    >>> config = resolve_storage_config(tempfile.mkdtemp())
+    >>> manifest_path = onepiece.save_dataset(frame, dataset_id="demo", config=config)
+    >>> manifest_path.name
+    'manifest.json'
+    """
     ensure_storage_layout(config)
     dataset_dir = dataset_directory(config, dataset_id, area=area)
     dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -149,6 +168,30 @@ def save_dataset(
 
 
 def load_dataset(path: str | Path) -> tuple[pd.DataFrame, DatasetManifest | None]:
+    """Load a dataset saved by :func:`save_dataset`, or a bare data file.
+
+    Accepts a managed dataset directory (or its ``manifest.json``), a parquet
+    file, or a pandas HDF file. The manifest is ``None`` when loading a bare
+    file. The returned frame always has a ``Name`` index.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> import pandas as pd
+    >>> import onepiece
+    >>> from onepiece.storage import resolve_storage_config
+    >>> config = resolve_storage_config(tempfile.mkdtemp())
+    >>> manifest_path = onepiece.save_dataset(
+    ...     pd.DataFrame({"Name": ["Cu211", "Cu211-CO"], "E": [-100.0, -115.2]}),
+    ...     dataset_id="demo",
+    ...     config=config,
+    ... )
+    >>> frame, manifest = onepiece.load_dataset(manifest_path.parent)
+    >>> list(frame.index)
+    ['Cu211', 'Cu211-CO']
+    >>> manifest.storage_format
+    'parquet'
+    """
     source = Path(path).expanduser()
     if source.is_dir():
         manifest_path = source / STORAGE_MANIFEST_NAME

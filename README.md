@@ -86,11 +86,15 @@ pip install -e ./ui
 
 ## Quick start
 
-### 1. Open the tutorial UI
+### 1. Just launch it
 
 ```bash
-onepiece-studio tutorial
+onepiece-studio
 ```
+
+This opens a welcome page where you can explore the bundled tutorial
+dataset, open one of your own HDF/parquet datasets, or reopen a recent
+file. `onepiece-studio tutorial` jumps straight into the tutorial dataset.
 
 ### 2. Open an existing HDF database
 
@@ -308,7 +312,7 @@ PFUI/
 ├── pyproject.toml            # onepiece backend package
 ├── ui/pyproject.toml         # onepiece-studio frontend package
 ├── src/onepiece/             # backend code
-├── src/onepiece_studio/      # frontend code
+├── ui/src/onepiece_studio/   # frontend code
 ├── tests/                    # package tests
 ├── docs/                     # Sphinx documentation and reports
 └── notebooks/                # worked examples and analysis notebooks

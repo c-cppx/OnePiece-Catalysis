@@ -2,22 +2,62 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import platform
 import subprocess  # nosec B404
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
 from pathlib import Path
 
-from onepiece import (
+from onepiece.qa import (
     bundled_catalysis_hub_dataset,
     format_self_test_result,
     run_catalysis_hub_self_test,
 )
 
+_STATUS_COLORS = {
+    "[PASS]": "\033[32m",
+    "[FAIL]": "\033[1;31m",
+    "[WARN]": "\033[33m",
+    "[INFO]": "\033[36m",
+}
+_RESET = "\033[0m"
+
+
+def _use_color() -> bool:
+    # https://no-color.org/ convention, plus only color real terminals so
+    # piped output and CI logs stay plain.
+    if os.environ.get("NO_COLOR"):
+        return False
+    return sys.stdout.isatty()
+
+
+def _colorize_status_tags(text: str) -> str:
+    if not _use_color():
+        return text
+    for tag, code in _STATUS_COLORS.items():
+        text = text.replace(tag, f"{code}{tag}{_RESET}")
+    return text
+
+
+def _studio_version() -> str:
+    try:
+        return _package_version("onepiece-studio")
+    except PackageNotFoundError:
+        return "unknown (package not installed)"
+
 
 def main(argv: list[str] | None = None) -> int:
     prog_name = Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else "onepiece-studio"
-    parser = argparse.ArgumentParser(prog=prog_name)
-    parser.add_argument("--version", action="version", version="onepiece-studio 1.0.0")
+    parser = argparse.ArgumentParser(
+        prog=prog_name,
+        description=(
+            "Launch OnePiece Studio. With no command, opens a welcome page "
+            "where you can pick the tutorial dataset, a local file, or a recent file."
+        ),
+    )
+    parser.add_argument("--version", action="version", version=f"onepiece-studio {_studio_version()}")
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("demo", help="Run the OnePiece Studio Streamlit demo.")
     subparsers.add_parser(
@@ -39,12 +79,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "qa":
         result = run_catalysis_hub_self_test(args.dataset)
-        print(format_self_test_result(result))
+        print(_colorize_status_tags(format_self_test_result(result)))
         return 0 if result.passed else 1
 
     if args.command == "doctor":
         report = _installation_report()
-        print(report)
+        print(_colorize_status_tags(report))
         return 0 if "[FAIL]" not in report else 1
 
     if args.command in {None, "demo", "tutorial", "hdf"}:

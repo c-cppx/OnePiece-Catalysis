@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import logging
-import subprocess  # nosec B404
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from onepiece import add_adsorption_energies, assign_surface_references
+from onepiece._compat import install_numpy_pickle_compat
 from onepiece._polars import dataframe_is_polars_safe, get_polars
+from onepiece.adsorption import add_adsorption_energies, assign_surface_references
 from onepiece.frame_utils import ensure_name_index
 from onepiece.storage import detect_storage_format, load_dataset
 
@@ -157,6 +156,19 @@ def prepare_source_frame(frame: pd.DataFrame, *, label: str, path: str, source_i
 
 
 def read_dataset_path(path: Path, *, key: str = "df") -> pd.DataFrame:
+    """Read a dataset from any supported on-disk layout.
+
+    Detects the storage format (pandas HDF file, parquet dataset directory,
+    or manifest file) and dispatches to the right reader. The returned frame
+    always has a ``Name`` index.
+
+    Examples
+    --------
+    >>> import onepiece
+    >>> frame = onepiece.read_dataset_path(onepiece.bundled_catalysis_hub_dataset())
+    >>> len(frame)
+    133
+    """
     if not path.exists():
         raise FileNotFoundError(path)
     storage_format = detect_storage_format(path)
@@ -168,27 +180,38 @@ def read_dataset_path(path: Path, *, key: str = "df") -> pd.DataFrame:
     raise ValueError(f"Could not determine how to read dataset path '{path}'.")
 
 
-def read_hdf_path(path: Path, *, key: str) -> pd.DataFrame:
+def read_hdf_path(path: Path, *, key: str, numpy_pickle_compat: bool = True) -> pd.DataFrame:
+    """Read a pandas HDF file into a ``Name``-indexed dataframe.
+
+    This is the canonical HDF entry point: it owns the friendly error
+    messages and the NumPy pickle-compatibility shim needed for files written
+    with older NumPy versions. Parquet dataset directories are accepted too
+    and routed through :func:`onepiece.load_dataset`.
+
+    Examples
+    --------
+    >>> import onepiece
+    >>> path = onepiece.bundled_catalysis_hub_dataset()
+    >>> frame = onepiece.read_hdf_path(path, key="df")
+    >>> "E" in frame.columns
+    True
+    >>> frame.index.name
+    'Name'
+    """
     if not path.exists():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError(
+            f"Dataset file not found: {path}. Check the path; both pandas HDF "
+            "files and parquet dataset directories are supported."
+        )
     if path.is_dir() or path.name.endswith(".json") or path.suffix.lower() in {".parquet", ".pq"}:
         frame, _manifest = load_dataset(path)
         return ensure_name_index(frame)
+    if numpy_pickle_compat:
+        install_numpy_pickle_compat()
     try:
-        return ensure_name_index(_read_hdf_with_helper_python(path, key=key, original_error=RuntimeError("helper-first")))
-    except Exception as exc:
-        logger.debug("Helper-first HDF read failed for %s: %s", path, exc)
-    try:
-        _install_numpy_pickle_compat()
         return ensure_name_index(pd.read_hdf(path, key=key).copy())
     except Exception as exc:
-        try:
-            if "numpy._core" in str(exc):
-                _install_numpy_pickle_compat()
-                return ensure_name_index(pd.read_hdf(path, key=key).copy())
-            return ensure_name_index(_read_hdf_with_helper_python(path, key=key, original_error=exc))
-        except Exception as helper_exc:
-            raise RuntimeError(_friendly_hdf_read_error(path, key=key, error=helper_exc)) from helper_exc
+        raise RuntimeError(_friendly_hdf_read_error(path, key=key, error=exc)) from exc
 
 
 def read_uploaded_hdf(uploaded: Any, *, key: str) -> tuple[pd.DataFrame, Path]:
@@ -501,9 +524,11 @@ def _friendly_hdf_read_error(path: Path, *, key: str, error: Exception) -> str:
             "`pip install onepiece`, `pip install onepiece-studio`, or `pip install tables` and try again."
         )
     if "no object named" in text:
+        available = _hdf_keys(path)
+        hint = f" Available keys: {', '.join(available)}." if available else ""
         return (
             f"Could not load HDF file '{path}' with key '{key}'. The file exists, but the requested "
-            "HDF key was not found. Check the stored key name, usually `df`."
+            f"HDF key was not found.{hint} Check the stored key name, usually `df`."
         )
     if "numpy._core" in text:
         return (
@@ -514,83 +539,10 @@ def _friendly_hdf_read_error(path: Path, *, key: str, error: Exception) -> str:
     return f"Could not load HDF file '{path}' with key '{key}': {message}"
 
 
-def _read_hdf_with_helper_python(path: Path, *, key: str, original_error: Exception) -> pd.DataFrame:
-    helper_python = _helper_python_path()
-    if helper_python is None:
-        raise original_error
-    output = Path(tempfile.NamedTemporaryFile(delete=False, suffix=".pkl", prefix="onepiece_studio_hdf_").name)
-    script = """
-from pathlib import Path
-import sys
-import numpy as np
-import pandas as pd
-try:
-    import numpy.core as numpy_core
-    sys.modules.setdefault("numpy._core", numpy_core)
-    sys.modules.setdefault("numpy._core.multiarray", np.core.multiarray)
-    sys.modules.setdefault("numpy._core.numeric", np.core.numeric)
-    import scipy.linalg  # noqa: F401
-    import ase.constraints  # noqa: F401
-    import sympy  # noqa: F401
-except Exception:
-    pass
-source = Path(sys.argv[1])
-key = sys.argv[2]
-target = Path(sys.argv[3])
-pd.read_hdf(source, key=key).to_pickle(target)
-"""
-    # The helper executable and arguments are fully constructed in-process.
-    completed = subprocess.run(  # nosec B603
-        [str(helper_python), "-c", script, str(path), key, str(output)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or completed.stdout.strip()
-        raise RuntimeError(f"{original_error}. Helper reader also failed: {detail}")
-    # The pickle is a temporary artifact produced by the helper process above.
-    return pd.read_pickle(output)  # nosec B301
-
-
-def _helper_python_path() -> Path | None:
-    import os
-    import sys
-
-    candidates = []
-    configured = os.environ.get("ONEPIECE_STUDIO_HELPER_PYTHON")
-    if configured:
-        candidates.append(Path(configured).expanduser())
-    candidates.extend(
-        [
-            Path(sys.executable),
-            Path("/opt/homebrew/bin/python3"),
-            Path("/usr/local/bin/python3"),
-        ]
-    )
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _install_numpy_pickle_compat() -> None:
+def _hdf_keys(path: Path) -> list[str]:
+    """Best-effort list of keys in a pandas HDF store, for error messages."""
     try:
-        import ase.constraints  # noqa: F401
-    except Exception as exc:
-        logger.debug("ASE pickle compatibility preload skipped: %s", exc)
-    try:
-        import numpy as np
-        import numpy.core as numpy_core
-
-        sys.modules.setdefault("numpy._core", numpy_core)
-        sys.modules.setdefault("numpy._core.multiarray", np.core.multiarray)
-        sys.modules.setdefault("numpy._core.numeric", np.core.numeric)
-    except Exception as exc:
-        logger.debug("NumPy pickle compatibility preload skipped: %s", exc)
-
-    for module_name in ("scipy.linalg", "sympy", "tables"):
-        try:
-            __import__(module_name)
-        except Exception as exc:
-            logger.debug("Optional compatibility preload for %s skipped: %s", module_name, exc)
+        with pd.HDFStore(str(path), mode="r") as store:
+            return [key.lstrip("/") for key in store.keys()]
+    except Exception:
+        return []

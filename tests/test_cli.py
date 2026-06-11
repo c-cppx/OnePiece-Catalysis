@@ -37,3 +37,20 @@ def test_main_tutorial_launches_bundled_dataset(monkeypatch, tmp_path: Path) -> 
         "--title",
         "OnePiece Studio Tutorial Dataset",
     ]
+
+
+def test_status_tags_colored_only_on_tty(monkeypatch) -> None:
+    report = "[INFO] header\n[PASS] check one\n[FAIL] check two\n[WARN] hint"
+
+    monkeypatch.setattr(cli, "_use_color", lambda: True)
+    colored = cli._colorize_status_tags(report)
+    assert "\033[32m[PASS]\033[0m" in colored
+    assert "\033[1;31m[FAIL]\033[0m" in colored
+
+    monkeypatch.setattr(cli, "_use_color", lambda: False)
+    assert cli._colorize_status_tags(report) == report
+
+
+def test_no_color_environment_disables_color(monkeypatch) -> None:
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert cli._use_color() is False

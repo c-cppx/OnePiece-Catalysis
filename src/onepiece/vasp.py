@@ -12,6 +12,7 @@ from ase import Atoms
 from ase.calculators.vasp.vasp_auxiliary import VaspChargeDensity, VaspDos
 from ase.calculators.vasp.vasp_data import PDOS_orbital_names_and_DOSCAR_column
 
+from onepiece._compat import trapezoid
 from onepiece.adsorption import assign_surface_references, primary_structure
 from onepiece.frame_utils import ensure_name_index, row_name
 from onepiece.thermo import is_gas_phase_row
@@ -696,7 +697,7 @@ def _integrate_signal(
     mask = (energies >= float(emin)) & (energies <= float(emax))
     if not mask.any():
         return 0.0
-    return float(np.trapz(signal[mask], energies[mask]))
+    return float(trapezoid(signal[mask], energies[mask]))
 
 
 def _resolve_row_file_path(
