@@ -34,6 +34,7 @@ api_usage
 quality_control
 changelog
 pandas_ase
+from_notebook_to_fair_dataset
 ```
 
 ```{toctree}
@@ -42,6 +43,7 @@ pandas_ase
 
 ase_user_guide
 ase_structures_in_dataframes
+dataframe_schema
 fair_and_provenance
 vasp_charge_and_dos
 xarray_vasp
@@ -57,6 +59,7 @@ backend_overview
 crawl_to_hdf_backend
 bundled_hdf_backend_tutorial
 function_inventory
+artifact_policy
 materials_workbench_design
 column_review
 logos
@@ -73,6 +76,9 @@ release_workflow
 visualization_recipes
 catalysis_hub_worked_example
 cuga_worked_example
+electrochemical_oer_tutorial
+co2rr_methanol_reference_tutorial
+published_dft_data_intake
 image_columns
 ```
 

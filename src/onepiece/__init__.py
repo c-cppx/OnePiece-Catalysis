@@ -12,6 +12,7 @@ documented submodules:
 - :mod:`onepiece.frame_utils` -- dataframe index helpers
 - :mod:`onepiece.ir` -- IR frequency matching and plots
 - :mod:`onepiece.phase_diagrams` -- surface phase diagrams
+- :mod:`onepiece.provenance` -- FAIR metadata, reference schemes, and RO-Crate export
 - :mod:`onepiece.projects` -- project save/restore payloads
 - :mod:`onepiece.qa` -- bundled dataset and self-tests
 - :mod:`onepiece.services` -- dataset queries and text filters
@@ -58,6 +59,13 @@ from onepiece.ase_analysis import plot_row_metric_3d, plot_structure_value_3d, s
 from onepiece.dftdataframe_import import crawl_root_to_frame
 from onepiece.vasp import add_atomic_magnetic_moment_descriptors, add_atomic_reference_difference_descriptors
 from onepiece.ir import plot_adsorption_energy_vs_frequency
+from onepiece.provenance import (
+    ReferenceScheme,
+    build_dataset_provenance,
+    provenance_graph,
+    ro_crate_metadata,
+    validate_provenance_payload,
+)
 from onepiece.qa import bundled_catalysis_hub_dataset
 from onepiece.sources import read_dataset_path, read_hdf_path
 from onepiece.storage import load_dataset, save_dataset
@@ -71,6 +79,12 @@ __all__ = [
     "read_dataset_path",
     "read_hdf_path",
     "save_dataset",
+    # FAIR/provenance
+    "ReferenceScheme",
+    "build_dataset_provenance",
+    "provenance_graph",
+    "ro_crate_metadata",
+    "validate_provenance_payload",
     # Adsorption energetics
     "GasReferences",
     "add_adsorption_energies",
@@ -130,9 +144,6 @@ _DEPRECATED_ALIASES = {
             "detect_overlapping_atoms",
             "detect_unphysical_bonds",
             "generalized_coordination_numbers",
-            "plot_row_metric_3d",
-            "plot_structure_value_3d",
-            "save_dataframe_metric_plots_3d",
             "identify_surface_atom_indices",
             "infer_atomic_layers",
             "map_atoms_by_species_and_position",
@@ -194,9 +205,24 @@ _DEPRECATED_ALIASES = {
             "build_project_payload",
             "restore_project_payload",
         ),
+        "onepiece.provenance": (
+            "ProvenanceActivity",
+            "ProvenanceAgent",
+            "ProvenanceEntity",
+            "ProvenanceRecord",
+            "ProvenanceValidationResult",
+            "attach_workflow_audit_log",
+            "entity_from_path",
+            "file_checksum",
+            "local_python_agent",
+            "now_utc_iso",
+            "onepiece_agent",
+            "workflow_activity",
+        ),
         "onepiece.qa": (
             "SelfTestResult",
             "format_self_test_result",
+            "run_fair_provenance_audit",
             "run_catalysis_hub_self_test",
         ),
         "onepiece.services": (
@@ -241,8 +267,6 @@ _DEPRECATED_ALIASES = {
             "add_adsorbate_charge_descriptors",
             "add_atomic_charge_descriptors",
             "add_projected_dos_descriptors",
-            "add_atomic_magnetic_moment_descriptors",
-            "add_atomic_reference_difference_descriptors",
             "adsorbate_atom_indices_from_structures",
             "atomic_charge_long_table",
             "compute_atomic_charges",

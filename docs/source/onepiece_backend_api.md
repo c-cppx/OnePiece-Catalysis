@@ -173,6 +173,32 @@ corrections used to construct it.
 - `onepiece.annotate_reaction_network(...)`
 - `onepiece.add_structure_descriptors(...)`
 
+## Provenance And FAIR Metadata
+
+These functions define how derived datasets record scientific context:
+
+- `onepiece.ReferenceScheme`
+- `onepiece.build_dataset_provenance(...)`
+- `onepiece.validate_provenance_payload(...)`
+- `onepiece.provenance_graph(...)`
+- `onepiece.ro_crate_metadata(...)`
+- `onepiece.save_dataset(..., reference_scheme=..., workflow_audit_log=...)`
+
+The key rule is that reference conventions are part of the data product. A
+managed dataset that contains adsorption energies or free energies should carry
+a `ReferenceScheme` in manifest provenance.
+
+Recommended conventions:
+
+- gas-phase thermochemistry: `ReferenceScheme.gas_phase(...)`
+- electrochemistry: `ReferenceScheme.computational_hydrogen_electrode(...)`
+- imported article data: record citation, DOI/URL, license, and conversion notes
+  in manifest metadata
+
+For external datasets from research articles, normalize the table first, then
+save it as a managed OnePiece dataset with provenance before using it in the UI
+or tutorial examples.
+
 ## Crawl And Import
 
 These backend functions define the calculation-root crawl layer.

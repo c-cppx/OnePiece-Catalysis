@@ -143,6 +143,8 @@ Then continue with the docs pages:
 
 - [First Day Guide For A Bachelor Student](docs/source/first_day_student.md)
 - [Load Your First Lab Dataset](docs/source/load_first_lab_dataset.md)
+- [Canonical DataFrame Schema](docs/source/dataframe_schema.md)
+- [From Notebook To FAIR Dataset](docs/source/from_notebook_to_fair_dataset.md)
 
 ## Backend example
 
@@ -398,6 +400,13 @@ the same provenance payload into an RO-Crate-style JSON-LD document.
 
 See [`docs/source/fair_and_provenance.md`](docs/source/fair_and_provenance.md)
 for the chemistry-facing explanation.
+
+For electrochemical and published-data workflows, start with:
+
+- [Electrochemical OER Tutorial](docs/source/electrochemical_oer_tutorial.md)
+- [CO2 Reduction And Methanol Reference Tutorial](docs/source/co2rr_methanol_reference_tutorial.md)
+- [Published DFT Data Intake](docs/source/published_dft_data_intake.md)
+- [Repository Artifact Policy](docs/source/artifact_policy.md)
 
 ## Documentation
 

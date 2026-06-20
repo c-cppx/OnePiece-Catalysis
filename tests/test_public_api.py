@@ -23,6 +23,12 @@ CURATED_EXPORTS = {
     "read_dataset_path",
     "read_hdf_path",
     "save_dataset",
+    # FAIR/provenance
+    "ReferenceScheme",
+    "build_dataset_provenance",
+    "provenance_graph",
+    "ro_crate_metadata",
+    "validate_provenance_payload",
     # Adsorption energetics
     "GasReferences",
     "add_adsorption_energies",
@@ -35,6 +41,12 @@ CURATED_EXPORTS = {
     "gas_free_energy",
     # Plotting
     "plot_adsorption_energy_vs_frequency",
+    "plot_row_metric_3d",
+    "plot_structure_value_3d",
+    "save_dataframe_metric_plots_3d",
+    # Electronic descriptors
+    "add_atomic_magnetic_moment_descriptors",
+    "add_atomic_reference_difference_descriptors",
 }
 
 # Everything `from onepiece import *` provided before the namespace was
