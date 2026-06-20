@@ -11,6 +11,7 @@ from onepiece._compat import install_numpy_pickle_compat
 from onepiece._polars import dataframe_is_polars_safe, get_polars
 from onepiece.adsorption import add_adsorption_energies, assign_surface_references
 from onepiece.frame_utils import ensure_name_index
+from onepiece.provenance import file_checksum
 from onepiece.storage import detect_storage_format, load_dataset
 
 SOURCE_STATE_KEY = "onepiece_studio_extra_hdf_sources"
@@ -63,6 +64,7 @@ def store_source(
     source_id = _source_id(label, path, sources)
     prepared = prepare_source_frame(frame, label=label, path=path, source_id=source_id)
     profile = detect_source_profile(prepared)
+    fingerprint = source_fingerprint(path)
     sources[source_id] = {
         "label": label,
         "path": path,
@@ -75,6 +77,7 @@ def store_source(
         "dataframe": prepared,
         "profile": profile["profile"],
         "capabilities": profile["capabilities"],
+        "fingerprint": fingerprint,
     }
     return source_id
 
@@ -94,6 +97,7 @@ def source_descriptors(state: dict[str, Any]) -> list[dict[str, Any]]:
                 "reloadable": bool(item.get("origin", "path") == "path"),
                 "profile": item.get("profile", "generic_dataframe"),
                 "capabilities": list(item.get("capabilities", [])),
+                "fingerprint": item.get("fingerprint") or source_fingerprint(str(item.get("path", ""))),
             }
         )
     return descriptors
@@ -121,6 +125,15 @@ def restore_source_descriptors(state: dict[str, Any], descriptors: list[dict[str
         source_id = str(descriptor.get("id") or _source_id(path.name, str(path), sources))
         prepared = prepare_source_frame(frame, label=str(descriptor.get("label", path.name)), path=str(path), source_id=source_id)
         profile = detect_source_profile(prepared)
+        fingerprint = source_fingerprint(path)
+        expected_fingerprint = descriptor.get("fingerprint") or {}
+        checksum_changed = bool(
+            expected_fingerprint.get("checksum")
+            and fingerprint.get("checksum")
+            and expected_fingerprint.get("checksum") != fingerprint.get("checksum")
+        )
+        if checksum_changed:
+            messages.append(f"Source '{descriptor.get('label', path.name)}' checksum changed since the project was saved.")
         sources[source_id] = {
             "label": str(descriptor.get("label", path.name)),
             "path": str(path),
@@ -133,8 +146,27 @@ def restore_source_descriptors(state: dict[str, Any], descriptors: list[dict[str
             "dataframe": prepared,
             "profile": profile["profile"],
             "capabilities": profile["capabilities"],
+            "fingerprint": fingerprint,
         }
     return messages
+
+
+def source_fingerprint(path: str | Path) -> dict[str, Any]:
+    """Return local FAIR source identity metadata for a path-backed source."""
+    source = Path(str(path)).expanduser()
+    if not source.exists() or str(path) in {"", "base"}:
+        return {"path": str(path), "exists": False}
+    stat = source.stat()
+    payload: dict[str, Any] = {
+        "path": str(source),
+        "exists": True,
+        "size_bytes": int(stat.st_size),
+        "mtime_ns": int(stat.st_mtime_ns),
+        "storage_format": detect_storage_format(source),
+    }
+    if source.is_file():
+        payload["checksum"] = file_checksum(source)
+    return payload
 
 
 def prepare_source_frame(frame: pd.DataFrame, *, label: str, path: str, source_id: str) -> pd.DataFrame:

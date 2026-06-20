@@ -114,6 +114,21 @@ onepiece-studio doctor
 onepiece-studio qa
 ```
 
+Audit a managed dataset for FAIR provenance before sharing it:
+
+```bash
+onepiece-studio fair-audit ".onepiece/workspace/mnvo_oer_surface_screening" \
+  --require-reference-scheme \
+  --require-publication-metadata
+```
+
+Export interoperable RO-Crate-style JSON-LD metadata:
+
+```bash
+onepiece-studio ro-crate ".onepiece/workspace/mnvo_oer_surface_screening" \
+  --output ro-crate-metadata.json
+```
+
 ## New student path
 
 For a new student in a research group, the recommended first sequence is:
@@ -349,8 +364,40 @@ them. For larger and more stable workflows, the direction is:
 - parquet tables for row-wise data
 - sidecar tables for charges, DOS, and other long-form data
 - xarray-backed dense volumetric data where appropriate
+- JSON-native provenance records with entities, activities, agents, and FAIR metadata
 
 This keeps the scientific row model intact while scaling better than one giant pickled object table.
+
+## FAIR and provenance
+
+OnePiece follows a local-first interpretation of FAIR data for computational
+catalysis. A saved dataset should be findable through a stable dataset id and
+manifest, accessible as ordinary local files, interoperable through pandas, ASE,
+parquet/HDF, xarray, and JSON metadata, and reusable because the reference
+scheme, workflow parameters, software version, and source files are recorded.
+
+This is not a replacement for [AiiDA](https://aiida.net). AiiDA is a full
+workflow management system with automatic provenance tracking for calculation
+graphs. OnePiece is a lightweight post-processing and analysis layer, but it
+uses the same core idea: raw files, derived tables, workflow operations, and
+software agents should be linked explicitly. Managed datasets therefore store a
+provenance payload in `manifest.json`.
+
+Backend workflow execution also returns an audit log for each enabled operation,
+including operation parameters, row/column changes, success or failure status,
+and the derived dataframe entity. That audit log is the bridge between a normal
+ASE/pandas analysis script and a more AiiDA-like provenance graph.
+Pass `workflow.audit_log` to `save_dataset(...)` when persisting a derived table
+so the manifest records how its columns were created.
+
+For catalysis-specific reuse, `onepiece.provenance.ReferenceScheme` records
+the thermodynamic convention behind adsorption or free-energy columns, including
+gas references, CHE potential/pH terms, corrections, temperature, and pressure.
+For interoperability, `onepiece.provenance.ro_crate_metadata(...)` can translate
+the same provenance payload into an RO-Crate-style JSON-LD document.
+
+See [`docs/source/fair_and_provenance.md`](docs/source/fair_and_provenance.md)
+for the chemistry-facing explanation.
 
 ## Documentation
 

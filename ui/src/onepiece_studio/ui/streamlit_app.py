@@ -13,6 +13,7 @@ from onepiece_studio.adapters import (
 from onepiece_studio.config import OnePieceStudioConfig
 from onepiece_studio.demo import demo_source, local_default_source
 from onepiece_studio.schema import infer_schema
+from onepiece_studio.state import AUDIT_LOG
 from onepiece_studio.ui.adsorption import render_adsorption_workbench
 from onepiece_studio.ui.controlroom import render_controlroom
 from onepiece_studio.ui.data_management import render_data_management
@@ -107,6 +108,7 @@ def build_page_functions(
 
     dataframe = apply_data_sources(st, base_dataframe, str(source_name), source_path=source_path)
     workflow = apply_workflow_operations(st, dataframe)
+    st.session_state[AUDIT_LOG] = workflow.audit_log
     workflow_dataframe = workflow.dataframe
     schema = infer_schema(
         workflow_dataframe,

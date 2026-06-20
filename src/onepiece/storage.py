@@ -13,6 +13,7 @@ import pandas as pd
 from pandas.api.types import is_bool_dtype, is_datetime64_any_dtype, is_numeric_dtype
 
 from onepiece.frame_utils import ensure_name_index
+from onepiece.provenance import ReferenceScheme, attach_workflow_audit_log, build_dataset_provenance
 
 STORAGE_MANIFEST_NAME = "manifest.json"
 STORAGE_SCHEMA_VERSION = 1
@@ -42,6 +43,7 @@ class DatasetManifest:
     columns: list[str]
     object_columns: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    provenance: dict[str, Any] = field(default_factory=dict)
 
 
 def resolve_storage_config(root: str | Path | None = None) -> StorageConfig:
@@ -85,6 +87,9 @@ def save_dataset(
     area: str = "workspace",
     source_path: str | None = None,
     metadata: dict[str, Any] | None = None,
+    provenance: dict[str, Any] | None = None,
+    reference_scheme: ReferenceScheme | dict[str, Any] | None = None,
+    workflow_audit_log: list[dict[str, Any]] | None = None,
 ) -> Path:
     """Persist a dataframe as a managed dataset and return its manifest path.
 
@@ -114,6 +119,21 @@ def save_dataset(
     prepared[ROW_ID_COLUMN] = range(len(prepared))
     object_columns = _object_sidecar_columns(normalized)
     manifest: DatasetManifest
+    provenance_payload = provenance or build_dataset_provenance(
+        dataset_id=dataset_id,
+        source_path=source_path,
+        operation="save_dataset",
+        parameters={
+            "storage_format": storage_format.lower(),
+            "area": area,
+            "rows": int(len(normalized)),
+            "columns": [str(column) for column in normalized.columns],
+            "object_columns": object_columns,
+        },
+        software_version=_onepiece_version(),
+        reference_scheme=reference_scheme,
+    ).to_dict()
+    provenance_payload = attach_workflow_audit_log(provenance_payload, workflow_audit_log)
 
     if storage_format.lower() == "parquet":
         table_file = "table.parquet"
@@ -141,6 +161,7 @@ def save_dataset(
             columns=[str(column) for column in normalized.columns],
             object_columns=object_columns,
             metadata=metadata or {},
+            provenance=provenance_payload,
         )
     elif storage_format.lower() == "hdf":
         table_file = "table.hdf"
@@ -158,6 +179,7 @@ def save_dataset(
             columns=[str(column) for column in normalized.columns],
             object_columns=[],
             metadata=metadata or {},
+            provenance=provenance_payload,
         )
     else:
         raise ValueError(f"Unsupported storage_format: {storage_format}")
@@ -317,3 +339,11 @@ def _slugify_dataset_id(value: str) -> str:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _onepiece_version() -> str | None:
+    try:
+        from onepiece import __version__
+    except Exception:
+        return None
+    return str(__version__)

@@ -42,6 +42,7 @@ pandas_ase
 
 ase_user_guide
 ase_structures_in_dataframes
+fair_and_provenance
 vasp_charge_and_dos
 xarray_vasp
 ase_to_ui_workflow_mapping
@@ -52,6 +53,10 @@ recommended_analysis_views
 :maxdepth: 2
 :caption: Package And Product Design
 
+backend_overview
+crawl_to_hdf_backend
+bundled_hdf_backend_tutorial
+function_inventory
 materials_workbench_design
 column_review
 logos
