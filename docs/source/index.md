@@ -56,6 +56,7 @@ materials_workbench_design
 column_review
 logos
 onepiece_studio_architecture
+architecture_for_ase_catalysis
 onepiece_backend_api
 release_workflow
 ```
