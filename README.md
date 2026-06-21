@@ -435,8 +435,8 @@ workflow improvements flow back into the commons.
 
 Current release line:
 
-- backend: `onepiece 1.0.0`
-- frontend: `onepiece-studio 1.0.0`
+- backend: `onepiece 1.0.1`
+- frontend: `onepiece-studio 1.0.1`
 
 The project is already usable for real local datasets, but it is still in the stage where careful
 QA, example datasets, and explicit scientific conventions matter more than broad generality.
