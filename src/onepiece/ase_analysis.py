@@ -241,7 +241,7 @@ def plot_structure_value_3d(
         lower -= 0.5
         upper += 0.5
     normalize = mcolors.Normalize(vmin=lower, vmax=upper)
-    colormap = cm.get_cmap(cmap)
+    colormap = plt.get_cmap(cmap)
 
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d", title=title)
