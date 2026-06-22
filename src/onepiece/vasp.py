@@ -279,6 +279,18 @@ def add_atomic_magnetic_moment_descriptors(
     *,
     structure_column: str = "struc",
 ) -> pd.DataFrame:
+    """Add per-atom and per-element magnetic-moment columns from ASE structures.
+
+    Examples
+    --------
+    >>> from ase import Atoms
+    >>> atoms = Atoms("Fe", positions=[[0, 0, 0]])
+    >>> atoms.set_initial_magnetic_moments([2.1])
+    >>> frame = pd.DataFrame({"Name": ["Fe"], "struc": [atoms]})
+    >>> add_atomic_magnetic_moment_descriptors(frame).loc["Fe", "total_magnetic_moment"]
+    2.1
+    """
+
     df = ensure_name_index(frame)
     if "atomic_magnetic_moments" not in df.columns:
         df["atomic_magnetic_moments"] = None
@@ -506,6 +518,18 @@ def add_atomic_reference_difference_descriptors(
     acf_filename: str = "ACF.dat",
     filename: str = "CHGCAR",
 ) -> pd.DataFrame:
+    """Add charge and magnetic-moment delta vectors against surface and gas references.
+
+    .. code-block:: python
+
+       enriched = add_atomic_reference_difference_descriptors(
+           frame,
+           charge_source="acf",
+           calculation_path_column="Path",
+       )
+       enriched["atomic_charge_delta_vs_valence_ref_e"]
+    """
+
     return add_adsorbate_charge_descriptors(
         frame,
         charge_source=charge_source,

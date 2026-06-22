@@ -12,7 +12,14 @@ PROVENANCE_SCHEMA_VERSION = 1
 
 @dataclass(frozen=True, slots=True)
 class ReferenceScheme:
-    """Thermodynamic reference convention used to interpret derived energies."""
+    """Thermodynamic reference convention used to interpret derived energies.
+
+    Examples
+    --------
+    >>> scheme = ReferenceScheme.gas_phase(name="CO_H2", gas_references_eV={"CO": -14.2})
+    >>> scheme.to_dict()["type"]
+    'gas_phase_thermochemistry'
+    """
 
     name: str
     scheme_type: str
@@ -212,6 +219,12 @@ def build_dataset_provenance(
     This does not try to replace AiiDA's full node graph. It gives OnePiece a
     local, lightweight provenance contract: entities, activities, agents, and
     enough FAIR metadata to make later export or audit possible.
+
+    Examples
+    --------
+    >>> record = build_dataset_provenance(dataset_id="cu-oer")
+    >>> record.to_dict()["entities"][0]["id"]
+    'onepiece:cu-oer'
     """
 
     entities: list[ProvenanceEntity] = []
@@ -315,7 +328,14 @@ def validate_provenance_payload(
     *,
     require_reference_scheme: bool = False,
 ) -> ProvenanceValidationResult:
-    """Validate the minimum FAIR/provenance contract for a saved dataset."""
+    """Validate the minimum FAIR/provenance contract for a saved dataset.
+
+    Examples
+    --------
+    >>> record = build_dataset_provenance(dataset_id="cu-oer")
+    >>> validate_provenance_payload(record).passed
+    True
+    """
 
     data = payload.to_dict() if isinstance(payload, ProvenanceRecord) else dict(payload or {})
     errors: list[str] = []
@@ -346,7 +366,15 @@ def validate_provenance_payload(
 
 
 def provenance_graph(payload: ProvenanceRecord | dict[str, Any]) -> dict[str, Any]:
-    """Return a compact graph representation of entities, activities, and agents."""
+    """Return a compact graph representation of entities, activities, and agents.
+
+    Examples
+    --------
+    >>> record = build_dataset_provenance(dataset_id="cu-oer")
+    >>> graph = provenance_graph(record)
+    >>> len(graph["nodes"]) >= 3
+    True
+    """
 
     data = payload.to_dict() if isinstance(payload, ProvenanceRecord) else dict(payload or {})
     nodes: list[dict[str, Any]] = []
@@ -380,7 +408,14 @@ def ro_crate_metadata(
     name: str = "OnePiece dataset",
     description: str | None = None,
 ) -> dict[str, Any]:
-    """Return an RO-Crate-style JSON-LD metadata document for provenance."""
+    """Return an RO-Crate-style JSON-LD metadata document for provenance.
+
+    Examples
+    --------
+    >>> record = build_dataset_provenance(dataset_id="cu-oer")
+    >>> ro_crate_metadata(record)["@context"]
+    'https://w3id.org/ro/crate/1.1/context'
+    """
 
     data = payload.to_dict() if isinstance(payload, ProvenanceRecord) else dict(payload or {})
     graph: list[dict[str, Any]] = [

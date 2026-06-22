@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -210,6 +210,15 @@ def plot_structure_value_3d(
     vmin: float | None = None,
     vmax: float | None = None,
 ):
+    """Plot atom positions in 3D with one scalar value per atom.
+
+    .. code-block:: python
+
+       from ase import Atoms
+       atoms = Atoms("Cu2", positions=[[0, 0, 0], [2, 0, 0]])
+       fig, ax = plot_structure_value_3d(atoms, [0.1, 0.2], "charge")
+    """
+
     try:
         import matplotlib.cm as cm
         import matplotlib.colors as mcolors
@@ -283,6 +292,14 @@ def plot_row_metric_3d(
     vmin: float | None = None,
     vmax: float | None = None,
 ):
+    """Plot one dataframe row's atom-resolved metric in 3D.
+
+    .. code-block:: python
+
+       row = frame.iloc[0]
+       fig, ax = plot_row_metric_3d(row, "atomic_charges")
+    """
+
     atoms = row.get(structure_column)
     if atoms is None or atoms.__class__.__name__ != "Atoms":
         raise ValueError(f"Row does not contain an ASE Atoms object in column '{structure_column}'.")
@@ -316,6 +333,17 @@ def save_dataframe_metric_plots_3d(
     size: float = 400.0,
     cmap: str = "nipy_spectral",
 ) -> pd.DataFrame:
+    """Save atom-resolved 3D metric plots for every plottable row.
+
+    .. code-block:: python
+
+       plot_index = save_dataframe_metric_plots_3d(
+           frame,
+           ["atomic_charges"],
+           output_dir="plots",
+       )
+    """
+
     try:
         import matplotlib.pyplot as plt
     except Exception as exc:  # pragma: no cover
