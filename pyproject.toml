@@ -41,7 +41,7 @@ dependencies = [
   "pyarrow>=24.0.0",
   "tables>=3.10.1",
   "sympy>=1.14.0",
-  "ase>=3.28.0",
+  "ase>=3.29.0",
   "xarray>=2025.6.1",
 ]
 
