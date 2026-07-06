@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +16,7 @@ from onepiece._compat import trapezoid
 from onepiece.adsorption import assign_surface_references, primary_structure
 from onepiece.frame_utils import ensure_name_index, row_name
 from onepiece.thermo import is_gas_phase_row
+from onepiece.workflow_config import ProjectWorkflowConfig, coerce_project_workflow_config
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,13 +159,19 @@ def read_vasp_valence_electrons(
     if potcar_path.exists():
         species_values = _parse_species_valence_values(potcar_path)
         if species_values and atoms_obj is not None:
-            return _expand_species_values(atoms_obj, species_values)
+            try:
+                return _expand_species_values(atoms_obj, species_values)
+            except ValueError:
+                pass
 
     outcar_path = calculation_dir / outcar_name
     if outcar_path.exists():
         species_values = _parse_species_valence_values(outcar_path)
         if species_values and atoms_obj is not None:
-            return _expand_species_values(atoms_obj, species_values)
+            try:
+                return _expand_species_values(atoms_obj, species_values)
+            except ValueError:
+                pass
 
     return None
 
@@ -182,6 +189,50 @@ def compute_atomic_charges(
     if reference.shape[0] != populations.shape[0]:
         raise ValueError("reference_electrons must match the number of atoms in the CHGCAR.")
     return reference - populations
+
+
+def acf_coordinate_deltas(
+    table: pd.DataFrame,
+    atoms: Atoms,
+    *,
+    minimum_image: bool = True,
+) -> np.ndarray:
+    """Return per-atom ACF-to-structure coordinate deltas in Angstrom.
+
+    When ``minimum_image`` is true, periodic axes are compared under the
+    minimum-image convention. This avoids flagging equivalent wrapped positions
+    as atom-order mismatches.
+    """
+    if len(table) != len(atoms):
+        return np.asarray([float("inf")], dtype=float)
+    acf_positions = table[["X", "Y", "Z"]].to_numpy(dtype=float)
+    atom_positions = np.asarray(atoms.get_positions(), dtype=float)
+    cartesian_delta = acf_positions - atom_positions
+    if not minimum_image or not np.any(atoms.pbc):
+        return np.linalg.norm(cartesian_delta, axis=1)
+
+    try:
+        cell = np.asarray(atoms.cell.array, dtype=float)
+        inverse_cell = np.linalg.inv(cell)
+    except np.linalg.LinAlgError:
+        return np.linalg.norm(cartesian_delta, axis=1)
+
+    fractional_delta = cartesian_delta @ inverse_cell
+    pbc = np.asarray(atoms.pbc, dtype=bool)
+    fractional_delta[:, pbc] -= np.round(fractional_delta[:, pbc])
+    minimum_image_delta = fractional_delta @ cell
+    return np.linalg.norm(minimum_image_delta, axis=1)
+
+
+def acf_coordinate_max_delta(
+    table: pd.DataFrame,
+    atoms: Atoms,
+    *,
+    minimum_image: bool = True,
+) -> float:
+    """Return the maximum ACF-to-structure coordinate delta in Angstrom."""
+    deltas = acf_coordinate_deltas(table, atoms, minimum_image=minimum_image)
+    return float(np.max(deltas)) if len(deltas) else 0.0
 
 
 def add_atomic_charge_descriptors(
@@ -207,12 +258,16 @@ def add_atomic_charge_descriptors(
         df["charge_source_used"] = None
     if "charge_coordinate_max_delta_A" not in df.columns:
         df["charge_coordinate_max_delta_A"] = np.nan
+    if "charge_coordinate_max_delta_raw_A" not in df.columns:
+        df["charge_coordinate_max_delta_raw_A"] = np.nan
+    if "charge_coordinate_validation_mode" not in df.columns:
+        df["charge_coordinate_validation_mode"] = None
     if "charge_coordinate_match" not in df.columns:
         df["charge_coordinate_match"] = None
 
     for index, row in df.iterrows():
         atoms = _row_atoms(row, structure_column)
-        populations, source_used, source_atoms, source_path, coordinate_delta = _resolve_atomic_populations(
+        populations, source_used, source_atoms, source_path, coordinate_delta, raw_coordinate_delta = _resolve_atomic_populations(
             row,
             charge_source=charge_source,
             acf_path_column=acf_path_column,
@@ -231,6 +286,8 @@ def add_atomic_charge_descriptors(
         df.at[index, "charge_source_used"] = source_used
         if coordinate_delta is not None:
             df.at[index, "charge_coordinate_max_delta_A"] = coordinate_delta
+            df.at[index, "charge_coordinate_max_delta_raw_A"] = raw_coordinate_delta
+            df.at[index, "charge_coordinate_validation_mode"] = "minimum_image"
             df.at[index, "charge_coordinate_match"] = bool(coordinate_delta < 1e-3)
 
         if atoms is None:
@@ -279,18 +336,18 @@ def add_atomic_magnetic_moment_descriptors(
     *,
     structure_column: str = "struc",
 ) -> pd.DataFrame:
-    """Add per-atom and per-element magnetic-moment columns from ASE structures.
+    """Add atom-resolved and per-element magnetic-moment descriptors.
 
     Examples
     --------
-    >>> from ase import Atoms
-    >>> atoms = Atoms("Fe", positions=[[0, 0, 0]])
-    >>> atoms.set_initial_magnetic_moments([2.1])
-    >>> frame = pd.DataFrame({"Name": ["Fe"], "struc": [atoms]})
-    >>> add_atomic_magnetic_moment_descriptors(frame).loc["Fe", "total_magnetic_moment"]
-    2.1
-    """
+    .. code-block:: python
 
+       enriched = add_atomic_magnetic_moment_descriptors(
+           frame,
+           structure_column="CONTCAR",
+       )
+       enriched[["atomic_magnetic_moments", "total_magnetic_moment"]]
+    """
     df = ensure_name_index(frame)
     if "atomic_magnetic_moments" not in df.columns:
         df["atomic_magnetic_moments"] = None
@@ -319,8 +376,13 @@ def add_adsorbate_charge_descriptors(
     structure_column: str = "struc",
     acf_filename: str = "ACF.dat",
     filename: str = "CHGCAR",
+    config: ProjectWorkflowConfig | Mapping[str, Any] | None = None,
 ) -> pd.DataFrame:
-    df = assign_surface_references(ensure_name_index(frame))
+    workflow_config = coerce_project_workflow_config(config)
+    df = assign_surface_references(
+        ensure_name_index(frame),
+        **workflow_config.reference_assignment_kwargs(),
+    )
     df = add_atomic_charge_descriptors(
         df,
         charge_source=charge_source,
@@ -518,18 +580,19 @@ def add_atomic_reference_difference_descriptors(
     acf_filename: str = "ACF.dat",
     filename: str = "CHGCAR",
 ) -> pd.DataFrame:
-    """Add charge and magnetic-moment delta vectors against surface and gas references.
+    """Add adsorbate/surface charge differences relative to reference rows.
 
+    Examples
+    --------
     .. code-block:: python
 
        enriched = add_atomic_reference_difference_descriptors(
            frame,
-           charge_source="acf",
-           calculation_path_column="Path",
+           structure_column="CONTCAR",
+           acf_path_column="acf_path",
        )
-       enriched["atomic_charge_delta_vs_valence_ref_e"]
+       enriched[["adsorbate_charge_delta_vs_ref_e", "charge_balance_residual_e"]]
     """
-
     return add_adsorbate_charge_descriptors(
         frame,
         charge_source=charge_source,
@@ -915,7 +978,7 @@ def _resolve_atomic_populations(
     acf_filename: str,
     chgcar_filename: str,
     compare_structure_coordinates: bool,
-) -> tuple[np.ndarray | None, str | None, Atoms | None, Path | None, float | None]:
+) -> tuple[np.ndarray | None, str | None, Atoms | None, Path | None, float | None, float | None]:
     atoms = _row_atoms(row, structure_column)
 
     if charge_source.lower() != "chgcar":
@@ -930,9 +993,11 @@ def _resolve_atomic_populations(
             if not table.empty:
                 populations = table["CHARGE"].to_numpy(dtype=float)
                 coordinate_delta = None
+                raw_coordinate_delta = None
                 if compare_structure_coordinates and atoms is not None:
-                    coordinate_delta = _compare_acf_coordinates(table, atoms)
-                return populations, "acf", atoms, acf_path, coordinate_delta
+                    coordinate_delta = _compare_acf_coordinates(table, atoms, minimum_image=True)
+                    raw_coordinate_delta = _compare_acf_coordinates(table, atoms, minimum_image=False)
+                return populations, "acf", atoms, acf_path, coordinate_delta, raw_coordinate_delta
 
     chgcar_path = _resolve_row_file_path(
         row,
@@ -941,20 +1006,15 @@ def _resolve_atomic_populations(
         filename=chgcar_filename,
     )
     if chgcar_path is None or not chgcar_path.exists():
-        return None, None, atoms, None, None
+        return None, None, atoms, None, None, None
     chgcar = read_chgcar(chgcar_path)
     populations = integrate_atomic_electron_populations(chgcar)
     active_atoms = atoms or chgcar.atoms
-    return populations, "chgcar", active_atoms, chgcar_path, None
+    return populations, "chgcar", active_atoms, chgcar_path, None, None
 
 
-def _compare_acf_coordinates(table: pd.DataFrame, atoms: Atoms) -> float:
-    if len(table) != len(atoms):
-        return float("inf")
-    acf_positions = table[["X", "Y", "Z"]].to_numpy(dtype=float)
-    atom_positions = np.asarray(atoms.get_positions(), dtype=float)
-    deltas = np.linalg.norm(acf_positions - atom_positions, axis=1)
-    return float(np.max(deltas)) if len(deltas) else 0.0
+def _compare_acf_coordinates(table: pd.DataFrame, atoms: Atoms, *, minimum_image: bool = True) -> float:
+    return acf_coordinate_max_delta(table, atoms, minimum_image=minimum_image)
 
 
 def _gas_phase_charge_references(frame: pd.DataFrame) -> dict[str, dict[str, float]]:
@@ -1053,13 +1113,23 @@ def _write_per_element_statistics(
 
 def _parse_species_valence_values(path: Path) -> list[float]:
     values: list[float] = []
-    pattern = re.compile(r"ZVAL\s*=\s*([-+]?\d+(?:\.\d+)?)")
+    summary_values: list[float] = []
+    zval_pattern = re.compile(r"ZVAL\s*=\s*(.*)")
+    number_pattern = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?")
+    prefer_summary_line = path.name.upper() == "OUTCAR"
     with path.open(errors="ignore") as handle:
         for line in handle:
-            match = pattern.search(line)
-            if match:
-                values.append(float(match.group(1)))
-    return values
+            match = zval_pattern.search(line)
+            if not match:
+                continue
+            parsed = [float(value) for value in number_pattern.findall(match.group(1))]
+            if not parsed:
+                continue
+            if prefer_summary_line and line.strip().startswith("ZVAL"):
+                summary_values = parsed
+            else:
+                values.extend(parsed)
+    return summary_values or values
 
 
 def _expand_species_values(atoms: Atoms, species_values: Sequence[float]) -> np.ndarray:

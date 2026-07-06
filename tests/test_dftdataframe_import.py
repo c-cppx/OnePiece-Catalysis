@@ -162,6 +162,69 @@ def test_crawl_root_to_frame_reads_per_folder_out_txt_thermochemistry(tmp_path: 
     assert np.isclose(row["S_vib"], 0.003)
 
 
+def test_crawl_root_to_frame_parses_ase_thermo_labels_without_using_label_numbers(tmp_path: Path) -> None:
+    calc_dir = tmp_path / "calcs" / "row-a"
+    calc_dir.mkdir(parents=True)
+    _write_traj(
+        calc_dir / "final.traj",
+        Atoms("CO2", positions=[(0, 0, 0), (1.2, 0, 0), (-1.2, 0, 0)]),
+        energy=-18.0,
+        forces=np.zeros((3, 3), dtype=float),
+    )
+    (calc_dir / "out.txt").write_text(
+        "\n".join(
+            [
+                "E_ZPE                  0.307 eV",
+                "Cv_trans (0->T)        0.065 eV",
+                "Cv_rot (0->T)          0.043 eV",
+                "Cv_vib (0->T)          0.034 eV",
+                "S_trans (1 bar)    0.0017288 eV/K        0.865 eV",
+                "S_rot              0.0006733 eV/K        0.337 eV",
+                "S_vib              0.0001016 eV/K        0.051 eV",
+                "S (1 bar -> P)    -0.0000011 eV/K       -0.001 eV",
+            ]
+        )
+    )
+
+    frame = crawl_root_to_frame(tmp_path / "calcs", read_electronic_files=False)
+    row = frame.iloc[0]
+
+    assert np.isclose(row["Cv_trans"], 0.065)
+    assert np.isclose(row["Cv_rot"], 0.043)
+    assert np.isclose(row["Cv_vib"], 0.034)
+    assert np.isclose(row["S_trans"], 0.0017288)
+    assert np.isclose(row["S_rot"], 0.0006733)
+    assert np.isclose(row["S_vib"], 0.0001016)
+    assert np.isclose(row["Sbar"], -0.0000011)
+
+
+def test_crawl_root_to_frame_reads_thermochemistry_during_base_crawl(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calc_dir = tmp_path / "calcs" / "row-a"
+    calc_dir.mkdir(parents=True)
+    _write_traj(
+        calc_dir / "final.traj",
+        Atoms("Cu2", positions=[(0, 0, 0), (1.8, 0, 0)]),
+        energy=-10.0,
+        forces=np.array([[0.0, 0.0, 0.01], [0.0, 0.0, -0.01]], dtype=float),
+    )
+    (calc_dir / "out.txt").write_text("S_vib = 0.0040 eV/K\n")
+
+    monkeypatch.setattr(
+        import_mod,
+        "merge_entropies_file",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("entropy merge should not run")),
+    )
+
+    frame = crawl_root_to_frame(tmp_path / "calcs", read_electronic_files=False)
+
+    row = frame.iloc[0]
+    assert bool(row["entropy_data_available"]) is True
+    assert np.isclose(row["S_vib"], 0.004)
+
+
 def test_crawl_root_to_frame_falls_back_to_contcar_when_final_traj_is_missing(tmp_path: Path) -> None:
     calc_dir = tmp_path / "calcs" / "row-a"
     calc_dir.mkdir(parents=True)
@@ -178,6 +241,60 @@ def test_crawl_root_to_frame_falls_back_to_contcar_when_final_traj_is_missing(tm
     assert row["contcar_path"] == str(calc_dir / "CONTCAR")
     assert np.isclose(row["a"], 5.0)
     assert np.isclose(row["c"], 8.0)
+
+
+def test_crawl_root_to_frame_overwrites_final_traj_values_from_outcar_when_energy_missing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calc_dir = tmp_path / "calcs" / "row-a"
+    calc_dir.mkdir(parents=True)
+    (calc_dir / "final.traj").write_text("placeholder")
+    (calc_dir / "OUTCAR").write_text("placeholder")
+
+    final_atoms = Atoms("Cu2", positions=[(0, 0, 0), (1.8, 0, 0)], cell=[5.0, 5.0, 8.0], pbc=True)
+    outcar_atoms = Atoms(
+        "Cu3O",
+        positions=[(0, 0, 0), (1.8, 0, 0), (0, 1.8, 0), (0.9, 0.9, 1.2)],
+        cell=[6.0, 7.0, 9.0],
+        pbc=True,
+    )
+    outcar_forces = np.array(
+        [
+            [0.0, 0.0, 0.01],
+            [0.0, 0.0, -0.02],
+            [0.0, 0.03, 0.0],
+            [0.04, 0.0, 0.0],
+        ],
+        dtype=float,
+    )
+
+    def fake_read_structure(path: Path):
+        if path.name == "final.traj":
+            return final_atoms.copy()
+        if path.name == "OUTCAR":
+            atoms = outcar_atoms.copy()
+            atoms.calc = SinglePointCalculator(atoms, energy=-30.0, forces=outcar_forces)
+            return atoms
+        return None
+
+    monkeypatch.setattr(import_mod, "_read_structure", fake_read_structure)
+
+    frame = crawl_root_to_frame(tmp_path / "calcs", read_electronic_files=False)
+    row = frame.iloc[0]
+
+    assert row["Formula"] == "Cu3O"
+    assert row["structure_source_original"] == "final.traj"
+    assert row["structure_source"] == "OUTCAR"
+    assert row["structure_file"] == str(calc_dir / "OUTCAR")
+    assert bool(row["structure_source_overridden_by_outcar"]) is True
+    assert np.isclose(row["E"], -30.0)
+    assert np.isclose(row["fmax"], 0.04)
+    assert np.isclose(row["a"], 6.0)
+    assert np.isclose(row["b"], 7.0)
+    assert np.isclose(row["c"], 9.0)
+    assert row["Cu"] == 3.0
+    assert row["O"] == 1.0
 
 
 def test_crawl_root_to_frame_reads_chgcar_and_doscar_summaries(tmp_path: Path) -> None:

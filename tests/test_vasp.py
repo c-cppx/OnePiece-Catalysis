@@ -25,6 +25,7 @@ from onepiece import (
     read_doscar,
     read_vasp_valence_electrons,
 )
+from onepiece.vasp import acf_coordinate_max_delta
 
 
 def test_chgcar_atomic_population_and_charge_integration(tmp_path: Path) -> None:
@@ -108,6 +109,75 @@ def test_read_acf_and_default_atomic_charge_descriptors_prefer_bader(tmp_path: P
     assert np.allclose(row["atomic_charges"], [0.9, 1.1])
     assert bool(row["charge_coordinate_match"]) is True
     assert np.isclose(row["charge_coordinate_max_delta_A"], 0.0)
+
+
+def test_read_vasp_valence_electrons_uses_outcar_summary_without_potcar(tmp_path: Path) -> None:
+    calc_dir = tmp_path / "outcar_valence"
+    calc_dir.mkdir()
+    atoms = Atoms(
+        ["Cu", "Cu", "Ga", "O", "C"],
+        positions=[[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0], [4, 0, 0]],
+    )
+    _write_outcar_valence(calc_dir / "OUTCAR", [11.0, 3.0, 6.0, 4.0])
+
+    reference = read_vasp_valence_electrons(calc_dir, atoms=atoms)
+
+    assert np.allclose(reference, [11.0, 11.0, 3.0, 6.0, 4.0])
+
+
+def test_acf_charge_descriptors_expand_outcar_valence_by_species_order(tmp_path: Path) -> None:
+    calc_dir = tmp_path / "hcoo_outcar"
+    calc_dir.mkdir()
+    atoms = Atoms(
+        ["C", "O", "O", "H"],
+        positions=[[0.0, 0.0, 0.0], [1.2, 0.0, 0.0], [0.0, 1.2, 0.0], [0.0, 0.0, 1.0]],
+        cell=[8.0, 8.0, 8.0],
+        pbc=True,
+    )
+    _write_acf(calc_dir / "ACF.dat", atoms, [3.9, 6.1, 5.8, 1.0])
+    _write_outcar_valence(calc_dir / "OUTCAR", [4.0, 6.0, 1.0])
+
+    frame = pd.DataFrame({"Name": ["hcoo"], "Path": [str(calc_dir)], "struc": [atoms]})
+    row = add_atomic_charge_descriptors(frame).iloc[0]
+
+    assert row["charge_source_used"] == "acf"
+    assert np.allclose(row["atomic_charges"], [0.1, -0.1, 0.2, 0.0])
+
+
+def test_acf_coordinate_validation_uses_minimum_image(tmp_path: Path) -> None:
+    calc_dir = tmp_path / "wrapped_acf_calc"
+    calc_dir.mkdir()
+    atoms = Atoms(
+        "HeBe",
+        positions=[[0.1, 0.5, 0.5], [9.8, 0.5, 0.5]],
+        cell=[[10.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        pbc=True,
+    )
+    acf_atoms = atoms.copy()
+    acf_atoms.set_positions([[10.1, 0.5, 0.5], [-0.2, 0.5, 0.5]])
+    _write_acf(calc_dir / "ACF.dat", acf_atoms, [1.1, 2.9])
+    (calc_dir / "POTCAR").write_text("ZVAL   =   2.000\nZVAL   =   4.000\n")
+
+    acf = read_acf_dat(calc_dir / "ACF.dat")
+    assert np.isclose(acf_coordinate_max_delta(acf, atoms, minimum_image=True), 0.0)
+    assert np.isclose(acf_coordinate_max_delta(acf, atoms, minimum_image=False), 10.0)
+
+    frame = pd.DataFrame({"Name": ["test"], "Path": [str(calc_dir)], "struc": [atoms]})
+    row = add_atomic_charge_descriptors(frame).iloc[0]
+
+    assert bool(row["charge_coordinate_match"]) is True
+    assert row["charge_coordinate_validation_mode"] == "minimum_image"
+    assert np.isclose(row["charge_coordinate_max_delta_A"], 0.0)
+    assert np.isclose(row["charge_coordinate_max_delta_raw_A"], 10.0)
+
+
+def test_read_vasp_valence_electrons_ignores_mismatched_species_metadata(tmp_path: Path) -> None:
+    calc_dir = tmp_path / "bad_valence"
+    calc_dir.mkdir()
+    atoms = Atoms("HeBe")
+    (calc_dir / "POTCAR").write_text("ZVAL   =   2.000\nZVAL   =   4.000\nZVAL   =   6.000\n")
+
+    assert read_vasp_valence_electrons(calc_dir, atoms=atoms) is None
 
 
 def test_doscar_reading_and_projected_dos_integration(tmp_path: Path) -> None:
@@ -321,6 +391,14 @@ def _write_acf(path: Path, atoms: Atoms, charges: list[float]) -> None:
     path.write_text("".join(lines))
 
 
+def _write_outcar_valence(path: Path, species_values: list[float]) -> None:
+    lines = []
+    for value in species_values:
+        lines.append(f"    POMASS =   10.000; ZVAL   =   {value:6.3f}    mass and valenz\n")
+    lines.append("    ZVAL   = " + " ".join(f"{value:6.2f}" for value in species_values) + "\n")
+    path.write_text("".join(lines))
+
+
 def test_atomic_magnetic_moments_from_structure_and_reference_delta_vectors(tmp_path: Path) -> None:
     root = tmp_path / "mag_refs"
     clean_dir = root / "clean"
@@ -357,8 +435,8 @@ def test_atomic_magnetic_moments_from_structure_and_reference_delta_vectors(tmp_
     )
 
     magnetic = add_atomic_magnetic_moment_descriptors(frame)
-    assert magnetic.loc["Cu-211-clean", "atomic_magnetic_moments"] == [0.0, 0.0]
-    assert magnetic.loc["gasphases-CO", "atomic_magnetic_moments"] == [0.1, -0.1]
+    assert magnetic.iloc[0]["atomic_magnetic_moments"] == [0.0, 0.0]
+    assert magnetic.iloc[1]["atomic_magnetic_moments"] == [0.1, -0.1]
 
     enriched = add_atomic_reference_difference_descriptors(frame)
     row = enriched.loc[enriched["Name"] == "Cu-211-clean-CO-1"].iloc[0]

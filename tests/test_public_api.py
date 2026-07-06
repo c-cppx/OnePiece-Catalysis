@@ -39,6 +39,7 @@ CURATED_EXPORTS = {
     "add_gibbs_free_energy",
     "adsorbate_free_energy",
     "gas_free_energy",
+    "oxygen_reference_from_h2o_h2",
     # Plotting
     "plot_adsorption_energy_vs_frequency",
     "plot_row_metric_3d",

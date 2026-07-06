@@ -16,9 +16,10 @@ class ReferenceScheme:
 
     Examples
     --------
-    >>> scheme = ReferenceScheme.gas_phase(name="CO_H2", gas_references_eV={"CO": -14.2})
-    >>> scheme.to_dict()["type"]
-    'gas_phase_thermochemistry'
+    >>> from onepiece.provenance import ReferenceScheme
+    >>> scheme = ReferenceScheme.gas_phase(name="DFT gases", gas_references_eV={"CO": -14.0})
+    >>> scheme.to_dict()["gas_references_eV"]["CO"]
+    -14.0
     """
 
     name: str
@@ -222,9 +223,10 @@ def build_dataset_provenance(
 
     Examples
     --------
-    >>> record = build_dataset_provenance(dataset_id="cu-oer")
-    >>> record.to_dict()["entities"][0]["id"]
-    'onepiece:cu-oer'
+    >>> from onepiece.provenance import build_dataset_provenance
+    >>> record = build_dataset_provenance(dataset_id="demo")
+    >>> record.activities[0].kind
+    'save_dataset'
     """
 
     entities: list[ProvenanceEntity] = []
@@ -332,7 +334,8 @@ def validate_provenance_payload(
 
     Examples
     --------
-    >>> record = build_dataset_provenance(dataset_id="cu-oer")
+    >>> from onepiece.provenance import build_dataset_provenance, validate_provenance_payload
+    >>> record = build_dataset_provenance(dataset_id="demo")
     >>> validate_provenance_payload(record).passed
     True
     """
@@ -370,10 +373,10 @@ def provenance_graph(payload: ProvenanceRecord | dict[str, Any]) -> dict[str, An
 
     Examples
     --------
-    >>> record = build_dataset_provenance(dataset_id="cu-oer")
-    >>> graph = provenance_graph(record)
-    >>> len(graph["nodes"]) >= 3
-    True
+    >>> from onepiece.provenance import build_dataset_provenance, provenance_graph
+    >>> graph = provenance_graph(build_dataset_provenance(dataset_id="demo"))
+    >>> sorted(graph)
+    ['edges', 'nodes', 'schema_version']
     """
 
     data = payload.to_dict() if isinstance(payload, ProvenanceRecord) else dict(payload or {})
@@ -412,9 +415,10 @@ def ro_crate_metadata(
 
     Examples
     --------
-    >>> record = build_dataset_provenance(dataset_id="cu-oer")
-    >>> ro_crate_metadata(record)["@context"]
-    'https://w3id.org/ro/crate/1.1/context'
+    >>> from onepiece.provenance import build_dataset_provenance, ro_crate_metadata
+    >>> crate = ro_crate_metadata(build_dataset_provenance(dataset_id="demo"), name="Demo")
+    >>> crate["@graph"][1]["name"]
+    'Demo'
     """
 
     data = payload.to_dict() if isinstance(payload, ProvenanceRecord) else dict(payload or {})

@@ -10,5 +10,26 @@ build/
 .pre-commit-cache/
 .tmp_mpl_cache/
 .streamlit/
+.ipynb_checkpoints/
 *.executed.ipynb
 .DS_Store
+local/
+
+# Local/private research workflow artifacts
+scripts/thesis_workflow/
+notebooks/alloy_formation_outputs/
+notebooks/alloy_formation_workflows/
+notebooks/co2_methanol_pathway_outputs/
+notebooks/co2_methanol_pathway_workflows/
+notebooks/m_mo_phase_diagram_outputs/
+notebooks/m_mo_phase_diagram_workflows/
+notebooks/create_m_mo_alloy_phase_notebooks.py
+notebooks/create_phd_thesis_figure_notebooks.py
+notebooks/create_subgroup_analysis_notebooks.py
+notebooks/template_conversion_inventory.md
+src/onepiece/workflows/thesis.py
+src/onepiece/convergence.py
+src/onepiece/validation.py
+tests/test_thesis_workflow.py
+tests/test_convergence_appendix.py
+tests/test_validation_reports.py

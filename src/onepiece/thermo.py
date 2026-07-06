@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -112,3 +113,53 @@ def add_gibbs_free_energy(
         except (KeyError, TypeError, ValueError):
             continue
     return df
+
+
+def apply_gas_reference_corrections(
+    gas_references_eV: Mapping[str, float],
+    corrections_eV: Mapping[str, float] | None,
+) -> dict[str, float]:
+    """Return gas references after applying species-specific energy corrections.
+
+    Corrections are additive in eV and are intended for manual reference
+    conventions such as a known CO2 correction. The input mapping is not
+    modified, so callers can store both raw and corrected references for
+    provenance.
+
+    Examples
+    --------
+    >>> refs = {"CO2": -19.2, "H2": -7.5}
+    >>> apply_gas_reference_corrections(refs, {"CO2": 0.4})
+    {'CO2': -18.8, 'H2': -7.5}
+    """
+    corrected = {str(species): float(value) for species, value in gas_references_eV.items()}
+    for species, correction in (corrections_eV or {}).items():
+        label = str(species)
+        if label not in corrected:
+            continue
+        value = pd.to_numeric(correction, errors="coerce")
+        if pd.isna(value):
+            continue
+        corrected[label] = float(corrected[label] + float(value))
+    return corrected
+
+
+def oxygen_reference_from_h2o_h2(gas_references_eV: Mapping[str, float]) -> float:
+    """Return the oxygen chemical potential from H2O and H2 gas references.
+
+    The convention is ``mu_O = G(H2O) - G(H2)``. It avoids using O2 directly
+    and matches the elemental adsorption-energy convention used by OnePiece.
+
+    Examples
+    --------
+    >>> oxygen_reference_from_h2o_h2({"H2O": -13.2, "H2": -7.5})
+    -5.699999999999999
+    """
+    try:
+        h2o = pd.to_numeric(gas_references_eV["H2O"], errors="coerce")
+        h2 = pd.to_numeric(gas_references_eV["H2"], errors="coerce")
+    except KeyError as exc:
+        raise KeyError("H2O and H2 gas references are required for mu_O = G(H2O) - G(H2).") from exc
+    if pd.isna(h2o) or pd.isna(h2):
+        raise ValueError("H2O and H2 gas references must be finite for mu_O = G(H2O) - G(H2).")
+    return float(h2o - h2)

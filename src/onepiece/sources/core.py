@@ -13,6 +13,7 @@ from onepiece.adsorption import add_adsorption_energies, assign_surface_referenc
 from onepiece.frame_utils import ensure_name_index
 from onepiece.provenance import file_checksum
 from onepiece.storage import detect_storage_format, load_dataset
+from onepiece.workflow_config import coerce_project_workflow_config
 
 SOURCE_STATE_KEY = "onepiece_studio_extra_hdf_sources"
 logger = logging.getLogger(__name__)
@@ -280,7 +281,16 @@ def apply_import_options(frame: pd.DataFrame, options: dict[str, Any] | None) ->
     prepared = apply_dataset_kind(prepared, options)
     if options.get("enable_adsorption_prep"):
         gas_refs = detected_gas_reference_values(prepared)
-        prepared = add_adsorption_energies(assign_surface_references(prepared), gas_refs)
+        workflow_config = coerce_project_workflow_config(
+            options.get("workflow_config") or options.get("project_workflow_config")
+        )
+        prepared = add_adsorption_energies(
+            assign_surface_references(
+                prepared,
+                **workflow_config.reference_assignment_kwargs(),
+            ),
+            gas_refs,
+        )
     return prepared
 
 

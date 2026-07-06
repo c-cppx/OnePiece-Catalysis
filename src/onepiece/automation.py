@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,7 @@ from onepiece.adsorption import (
     primary_structure,
 )
 from onepiece.thermo import is_gas_phase_row
+from onepiece.workflow_config import ProjectWorkflowConfig, coerce_project_workflow_config
 
 REACTION_STATE_TOKENS = (
     "H2NCH2OH",
@@ -133,9 +135,17 @@ def apply_curation_rules(
     return df
 
 
-def add_structure_descriptors(frame: pd.DataFrame) -> pd.DataFrame:
+def add_structure_descriptors(
+    frame: pd.DataFrame,
+    *,
+    config: ProjectWorkflowConfig | Mapping[str, object] | None = None,
+) -> pd.DataFrame:
     """Derive structure descriptors useful for catalytic trend analysis."""
-    df = assign_surface_references(frame.copy())
+    workflow_config = coerce_project_workflow_config(config)
+    df = assign_surface_references(
+        frame.copy(),
+        **workflow_config.reference_assignment_kwargs(),
+    )
     df["primary_atoms"] = df.apply(primary_structure, axis=1)
     df["n_atoms"] = df["primary_atoms"].map(
         lambda atoms: float(len(atoms)) if atoms is not None and atoms.__class__.__name__ == "Atoms" else np.nan

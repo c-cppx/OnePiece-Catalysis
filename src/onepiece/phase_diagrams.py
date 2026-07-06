@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 import sympy as sp
+
+from onepiece.adsorption.formulas import compile_adsorbate_pattern
 
 DEFAULT_PHASE_SYMBOLS = {
     "x": sp.Symbol("x", positive=True),
@@ -50,6 +53,163 @@ class GroupedPhaseDiagramResult:
     groups: dict[str, NamedPhaseFieldResult]
 
 
+NamePattern = str | re.Pattern[str]
+
+
+@dataclass(frozen=True)
+class PhaseCandidateValidationRules:
+    """Configurable row filters for phase-diagram candidate tables."""
+
+    name_column: str = "Name"
+    path_column: str = "Path"
+    adsorbate_column: str = "adsorbate"
+    empty_adsorbate_values: tuple[str, ...] = ("", "nan", "none", "false")
+    adsorbate_tokens: tuple[str, ...] = ()
+    adsorbate_name_pattern: NamePattern | None = None
+    adsorbate_name_search_after_pattern: NamePattern | None = None
+    excluded_name_substrings: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    excluded_name_patterns: Mapping[str, Sequence[NamePattern]] = field(default_factory=dict)
+    allowed_elements: tuple[str, ...] = ()
+    element_count_columns: tuple[str, ...] = ()
+    extra_element_reason: str = "extra_element_count"
+    bulk_phase_sets: tuple[str, ...] = ("Bulk", "bulk")
+    bulk_excluded_name_substrings: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    bulk_excluded_name_patterns: Mapping[str, Sequence[NamePattern]] = field(default_factory=dict)
+    bulk_excluded_path_substrings: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    bulk_excluded_path_patterns: Mapping[str, Sequence[NamePattern]] = field(default_factory=dict)
+
+    @classmethod
+    def from_mapping(
+        cls,
+        values: PhaseCandidateValidationRules | Mapping[str, object] | None,
+    ) -> PhaseCandidateValidationRules:
+        """Build validation rules from a JSON/YAML-friendly mapping."""
+        if values is None:
+            values = {}
+        elif isinstance(values, cls):
+            return values
+        elif hasattr(values, "to_mapping"):
+            values = values.to_mapping()
+        values = dict(values)
+        return cls(
+            name_column=str(values.get("name_column", "Name")),
+            path_column=str(values.get("path_column", "Path")),
+            adsorbate_column=str(values.get("adsorbate_column", "adsorbate")),
+            empty_adsorbate_values=_tuple(values.get("empty_adsorbate_values", ("", "nan", "none", "false"))),
+            adsorbate_tokens=_tuple(values.get("adsorbate_tokens", ())),
+            adsorbate_name_pattern=_optional_pattern_text(values.get("adsorbate_name_pattern")),
+            adsorbate_name_search_after_pattern=_optional_pattern_text(
+                values.get("adsorbate_name_search_after_pattern")
+            ),
+            excluded_name_substrings=_string_sequence_mapping(values.get("excluded_name_substrings")),
+            excluded_name_patterns=_string_sequence_mapping(values.get("excluded_name_patterns")),
+            allowed_elements=_tuple(values.get("allowed_elements", ())),
+            element_count_columns=_tuple(values.get("element_count_columns", ())),
+            extra_element_reason=str(values.get("extra_element_reason", "extra_element_count")),
+            bulk_phase_sets=_tuple(values.get("bulk_phase_sets", ("Bulk", "bulk"))),
+            bulk_excluded_name_substrings=_string_sequence_mapping(values.get("bulk_excluded_name_substrings")),
+            bulk_excluded_name_patterns=_string_sequence_mapping(values.get("bulk_excluded_name_patterns")),
+            bulk_excluded_path_substrings=_string_sequence_mapping(values.get("bulk_excluded_path_substrings")),
+            bulk_excluded_path_patterns=_string_sequence_mapping(values.get("bulk_excluded_path_patterns")),
+        )
+
+    def to_mapping(self) -> dict[str, object]:
+        """Return a JSON/YAML-friendly representation of these rules."""
+        return {
+            "name_column": self.name_column,
+            "path_column": self.path_column,
+            "adsorbate_column": self.adsorbate_column,
+            "empty_adsorbate_values": list(self.empty_adsorbate_values),
+            "adsorbate_tokens": list(self.adsorbate_tokens),
+            "adsorbate_name_pattern": _optional_pattern_text(self.adsorbate_name_pattern),
+            "adsorbate_name_search_after_pattern": _optional_pattern_text(
+                self.adsorbate_name_search_after_pattern
+            ),
+            "excluded_name_substrings": _string_sequence_mapping(self.excluded_name_substrings),
+            "excluded_name_patterns": _pattern_sequence_mapping(self.excluded_name_patterns),
+            "allowed_elements": list(self.allowed_elements),
+            "element_count_columns": list(self.element_count_columns),
+            "extra_element_reason": self.extra_element_reason,
+            "bulk_phase_sets": list(self.bulk_phase_sets),
+            "bulk_excluded_name_substrings": _string_sequence_mapping(self.bulk_excluded_name_substrings),
+            "bulk_excluded_name_patterns": _pattern_sequence_mapping(self.bulk_excluded_name_patterns),
+            "bulk_excluded_path_substrings": _string_sequence_mapping(self.bulk_excluded_path_substrings),
+            "bulk_excluded_path_patterns": _pattern_sequence_mapping(self.bulk_excluded_path_patterns),
+        }
+
+
+def validate_phase_candidates(
+    frame: pd.DataFrame,
+    *,
+    system: str = "",
+    phase_set: str = "",
+    allowed_elements: Sequence[str] = (),
+    rules: PhaseCandidateValidationRules | Mapping[str, object] | None = None,
+) -> pd.DataFrame:
+    """Return a row-level audit for generic phase-candidate cleaning.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from onepiece.phase_diagrams import PhaseCandidateValidationRules, validate_phase_candidates
+    >>> rules = PhaseCandidateValidationRules(excluded_name_substrings={"backup_candidate": ("backup",)})
+    >>> audit = validate_phase_candidates(
+    ...     pd.DataFrame({"Name": ["M-clean", "M-clean-backup"], "M": [4, 4]}),
+    ...     allowed_elements=("M",),
+    ...     rules=rules,
+    ... )
+    >>> audit["status"].tolist()
+    ['kept', 'dropped']
+    """
+    active_rules = _coerce_phase_candidate_rules(rules)
+    audit = pd.DataFrame(index=frame.index)
+    audit["system"] = system
+    audit["phase_set"] = phase_set
+    audit["Name"] = _string_column(frame, active_rules.name_column)
+    audit["Path"] = _string_column(frame, active_rules.path_column)
+
+    merged_allowed_elements = tuple(
+        dict.fromkeys([*active_rules.allowed_elements, *(str(element) for element in allowed_elements)])
+    )
+    reasons = _phase_candidate_reason_masks(
+        frame,
+        rules=active_rules,
+        phase_set=phase_set,
+        allowed_elements=merged_allowed_elements,
+    )
+
+    reason_text: list[str] = []
+    for row_index in frame.index:
+        row_reasons = [reason for reason, mask in reasons.items() if bool(mask.loc[row_index])]
+        reason_text.append(";".join(row_reasons))
+    audit["drop_reasons"] = reason_text
+    audit["status"] = np.where(audit["drop_reasons"].eq(""), "kept", "dropped")
+    return audit.reset_index(drop=True)
+
+
+def clean_phase_candidates(
+    frame: pd.DataFrame,
+    *,
+    system: str = "",
+    phase_set: str = "",
+    allowed_elements: Sequence[str] = (),
+    rules: PhaseCandidateValidationRules | Mapping[str, object] | None = None,
+    audit_attr: str = "phase_input_cleaning_audit",
+) -> pd.DataFrame:
+    """Drop invalid phase candidates and attach the validation audit."""
+    audit = validate_phase_candidates(
+        frame,
+        system=system,
+        phase_set=phase_set,
+        allowed_elements=allowed_elements,
+        rules=rules,
+    )
+    kept_mask = audit["status"].eq("kept").to_numpy()
+    cleaned = frame.loc[kept_mask].copy()
+    cleaned.attrs[audit_attr] = audit
+    return cleaned
+
+
 def default_phase_variables(**overrides: object) -> dict[str, object]:
     """Return a neutral default environment for symbolic phase expressions."""
     variables: dict[str, object] = {
@@ -70,6 +230,217 @@ def phase_symbol_locals(extra: Mapping[str, object] | None = None) -> dict[str, 
     if extra:
         locals_dict.update(extra)
     return locals_dict
+
+
+def _phase_candidate_reason_masks(
+    frame: pd.DataFrame,
+    *,
+    rules: PhaseCandidateValidationRules,
+    phase_set: str,
+    allowed_elements: Sequence[str],
+) -> dict[str, pd.Series]:
+    names = _string_column(frame, rules.name_column)
+    paths = _string_column(frame, rules.path_column)
+    reasons: dict[str, pd.Series] = {
+        "adsorbate_column": _nonempty_adsorbate_mask(frame, rules=rules),
+        "adsorbate_name_marker": _adsorbate_name_marker_mask(names, rules=rules),
+    }
+    reasons.update(_substring_reason_masks(names, rules.excluded_name_substrings))
+    reasons.update(_pattern_reason_masks(names, rules.excluded_name_patterns))
+    reasons[rules.extra_element_reason] = _extra_element_count_mask(
+        frame,
+        allowed_elements=allowed_elements,
+        element_count_columns=rules.element_count_columns,
+    )
+    if _is_bulk_phase_set(phase_set, rules.bulk_phase_sets):
+        for source, mappings in (
+            (names, rules.bulk_excluded_name_substrings),
+            (paths, rules.bulk_excluded_path_substrings),
+        ):
+            for reason, mask in _substring_reason_masks(source, mappings).items():
+                reasons[reason] = reasons.get(reason, pd.Series(False, index=frame.index)) | mask
+        for source, mappings in (
+            (names, rules.bulk_excluded_name_patterns),
+            (paths, rules.bulk_excluded_path_patterns),
+        ):
+            for reason, mask in _pattern_reason_masks(source, mappings).items():
+                reasons[reason] = reasons.get(reason, pd.Series(False, index=frame.index)) | mask
+    return reasons
+
+
+def _coerce_phase_candidate_rules(
+    rules: PhaseCandidateValidationRules | Mapping[str, object] | None,
+) -> PhaseCandidateValidationRules:
+    if rules is None:
+        return PhaseCandidateValidationRules()
+    if isinstance(rules, PhaseCandidateValidationRules):
+        return rules
+    return PhaseCandidateValidationRules.from_mapping(rules)
+
+
+def _string_column(frame: pd.DataFrame, column: str) -> pd.Series:
+    if column not in frame.columns:
+        return pd.Series("", index=frame.index, dtype=object)
+    return frame[column].fillna("").astype(str)
+
+
+def _nonempty_adsorbate_mask(frame: pd.DataFrame, *, rules: PhaseCandidateValidationRules) -> pd.Series:
+    if rules.adsorbate_column not in frame.columns:
+        return pd.Series(False, index=frame.index)
+    empty_values = {value.lower() for value in rules.empty_adsorbate_values}
+    adsorbates = frame[rules.adsorbate_column].fillna("").astype(str).str.strip().str.lower()
+    return ~adsorbates.isin(empty_values)
+
+
+def _adsorbate_name_marker_mask(names: pd.Series, *, rules: PhaseCandidateValidationRules) -> pd.Series:
+    if rules.adsorbate_name_pattern is None and not rules.adsorbate_tokens:
+        return pd.Series(False, index=names.index)
+    pattern = (
+        _compile_name_pattern(rules.adsorbate_name_pattern)
+        if rules.adsorbate_name_pattern is not None
+        else compile_adsorbate_pattern(tuple(rules.adsorbate_tokens))
+    )
+    anchor_pattern = _compile_name_pattern(rules.adsorbate_name_search_after_pattern)
+    values = []
+    for value in names:
+        text = str(value)
+        if anchor_pattern is not None:
+            anchor = anchor_pattern.search(text)
+            if anchor is None:
+                values.append(False)
+                continue
+            text = text[anchor.end() :]
+        values.append(bool(pattern.search(text)))
+    return pd.Series(values, index=names.index)
+
+
+def _substring_reason_masks(
+    text: pd.Series,
+    mappings: Mapping[str, Sequence[str]],
+) -> dict[str, pd.Series]:
+    masks: dict[str, pd.Series] = {}
+    for reason, needles in mappings.items():
+        mask = pd.Series(False, index=text.index)
+        for needle in _as_sequence(needles):
+            token = str(needle)
+            if token:
+                mask |= text.str.contains(token, case=False, regex=False, na=False)
+        masks[str(reason)] = mask
+    return masks
+
+
+def _pattern_reason_masks(
+    text: pd.Series,
+    mappings: Mapping[str, Sequence[NamePattern]],
+) -> dict[str, pd.Series]:
+    masks: dict[str, pd.Series] = {}
+    for reason, patterns in mappings.items():
+        mask = pd.Series(False, index=text.index)
+        for pattern_value in _as_sequence(patterns):
+            pattern = _compile_name_pattern(pattern_value)
+            if pattern is not None:
+                mask |= text.map(lambda value, pattern=pattern: bool(pattern.search(str(value))))
+        masks[str(reason)] = mask
+    return masks
+
+
+def _extra_element_count_mask(
+    frame: pd.DataFrame,
+    *,
+    allowed_elements: Sequence[str],
+    element_count_columns: Sequence[str],
+) -> pd.Series:
+    allowed = {str(element) for element in allowed_elements if str(element)}
+    if not allowed:
+        return pd.Series(False, index=frame.index)
+    columns = tuple(element_count_columns) or _infer_element_count_columns(frame)
+    mask = pd.Series(False, index=frame.index)
+    for column in columns:
+        column_name = str(column)
+        if column_name not in frame.columns:
+            continue
+        element = _element_from_count_column(column_name)
+        if not element or element in allowed:
+            continue
+        mask |= pd.to_numeric(frame[column_name], errors="coerce").fillna(0).ne(0)
+    return mask
+
+
+def _infer_element_count_columns(frame: pd.DataFrame) -> tuple[str, ...]:
+    columns = []
+    for column in frame.columns:
+        column_name = str(column)
+        if _element_from_count_column(column_name):
+            columns.append(column_name)
+    return tuple(columns)
+
+
+def _element_from_count_column(column: str) -> str:
+    if re.fullmatch(r"[A-Z][a-z]?", column):
+        return column
+    match = re.fullmatch(r"n_([A-Z][a-z]?)", column)
+    return match.group(1) if match else ""
+
+
+def _is_bulk_phase_set(phase_set: str, bulk_phase_sets: Sequence[str]) -> bool:
+    target = str(phase_set).lower()
+    return target in {str(value).lower() for value in bulk_phase_sets}
+
+
+def _compile_name_pattern(pattern: NamePattern | None) -> re.Pattern[str] | None:
+    if pattern is None:
+        return None
+    return re.compile(pattern, re.IGNORECASE) if isinstance(pattern, str) else pattern
+
+
+def _as_sequence(values: object) -> tuple[object, ...]:
+    if isinstance(values, str) or not isinstance(values, Sequence):
+        return (values,)
+    return tuple(values)
+
+
+def _tuple(values: object) -> tuple[str, ...]:
+    if isinstance(values, str):
+        return (values,)
+    if isinstance(values, Sequence):
+        return tuple(str(value) for value in values)
+    return ()
+
+
+def _optional_pattern_text(value: object) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, re.Pattern):
+        return value.pattern
+    text = str(value)
+    return text if text else None
+
+
+def _string_sequence_mapping(values: object) -> dict[str, tuple[str, ...]]:
+    if values is None:
+        return {}
+    try:
+        items = dict(values).items()
+    except (TypeError, ValueError):
+        return {}
+    return {str(key): _tuple(value) for key, value in items}
+
+
+def _pattern_sequence_mapping(values: object) -> dict[str, tuple[str, ...]]:
+    if values is None:
+        return {}
+    try:
+        items = dict(values).items()
+    except (TypeError, ValueError):
+        return {}
+    return {
+        str(key): tuple(
+            text
+            for text in (_optional_pattern_text(item) for item in _as_sequence(value))
+            if text is not None
+        )
+        for key, value in items
+    }
 
 
 def to_sympy_expression(value: object, *, locals_dict: Mapping[str, object] | None = None) -> sp.Basic:

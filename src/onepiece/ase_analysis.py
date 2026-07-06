@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +22,7 @@ from onepiece.vasp import (
     matched_surface_atom_indices_from_structures,
     read_doscar,
 )
+from onepiece.workflow_config import ProjectWorkflowConfig, coerce_project_workflow_config
 
 SURFACE_NORMAL = np.array([0.0, 0.0, 1.0], dtype=float)
 logger = logging.getLogger(__name__)
@@ -210,15 +211,19 @@ def plot_structure_value_3d(
     vmin: float | None = None,
     vmax: float | None = None,
 ):
-    """Plot atom positions in 3D with one scalar value per atom.
+    """Plot per-atom scalar values on an ASE structure.
 
+    Examples
+    --------
     .. code-block:: python
 
-       from ase import Atoms
-       atoms = Atoms("Cu2", positions=[[0, 0, 0], [2, 0, 0]])
-       fig, ax = plot_structure_value_3d(atoms, [0.1, 0.2], "charge")
-    """
+       from ase.build import bulk
+       from onepiece.ase_analysis import generalized_coordination_numbers, plot_structure_value_3d
 
+       atoms = bulk("Cu", "fcc", a=3.6, cubic=True)
+       values = generalized_coordination_numbers(atoms)
+       fig, ax = plot_structure_value_3d(atoms, values, "Cu GCN")
+    """
     try:
         import matplotlib.cm as cm
         import matplotlib.colors as mcolors
@@ -292,14 +297,18 @@ def plot_row_metric_3d(
     vmin: float | None = None,
     vmax: float | None = None,
 ):
-    """Plot one dataframe row's atom-resolved metric in 3D.
+    """Plot one row's atom-resolved metric on its stored structure.
 
+    Examples
+    --------
     .. code-block:: python
 
-       row = frame.iloc[0]
-       fig, ax = plot_row_metric_3d(row, "atomic_charges")
+       fig, ax = plot_row_metric_3d(
+           row,
+           "atomic_charges",
+           structure_column="CONTCAR",
+       )
     """
-
     atoms = row.get(structure_column)
     if atoms is None or atoms.__class__.__name__ != "Atoms":
         raise ValueError(f"Row does not contain an ASE Atoms object in column '{structure_column}'.")
@@ -333,17 +342,20 @@ def save_dataframe_metric_plots_3d(
     size: float = 400.0,
     cmap: str = "nipy_spectral",
 ) -> pd.DataFrame:
-    """Save atom-resolved 3D metric plots for every plottable row.
+    """Save 3D atom-metric plots for every compatible row and metric.
 
+    Examples
+    --------
     .. code-block:: python
 
-       plot_index = save_dataframe_metric_plots_3d(
+       saved = save_dataframe_metric_plots_3d(
            frame,
-           ["atomic_charges"],
-           output_dir="plots",
+           ["atomic_charges", "atomic_magnetic_moments"],
+           output_dir="plots/atom_metrics",
+           structure_column="CONTCAR",
        )
+       saved[["Name", "metric", "plot_path"]]
     """
-
     try:
         import matplotlib.pyplot as plt
     except Exception as exc:  # pragma: no cover
@@ -689,8 +701,13 @@ def add_ase_analysis_descriptors(
     calculation_path_column: str = "Path",
     doscar_path_column: str = "doscar_path",
     dos_filename: str = "DOSCAR",
+    config: ProjectWorkflowConfig | Mapping[str, object] | None = None,
 ) -> pd.DataFrame:
-    df = assign_surface_references(frame.copy())
+    workflow_config = coerce_project_workflow_config(config)
+    df = assign_surface_references(
+        frame.copy(),
+        **workflow_config.reference_assignment_kwargs(),
+    )
     df["primary_atoms"] = df.apply(
         lambda row: primary_structure(row, structure_columns=(structure_column, "CONTCAR", "structure", "atoms")),
         axis=1,

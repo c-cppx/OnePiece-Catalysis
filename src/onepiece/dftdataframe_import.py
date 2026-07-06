@@ -24,6 +24,23 @@ from onepiece.vasp import read_chgcar, read_doscar
 
 DEFAULT_THERMO_FILENAME = "out.txt"
 DEFAULT_STRUCTURE_FALLBACKS = ("final.traj", "CONTCAR", "OUTCAR", "POSCAR")
+BASE_CRAWL_CACHE_SCHEMA_VERSION = "base-v2-outcar-energy-fallback"
+THERMOCHEMISTRY_COLUMNS = [
+    "modes_for_G",
+    "Cv_at_T",
+    "E_pot",
+    "E_ZPE",
+    "Cv_trans",
+    "Cv_rot",
+    "Cv_vib",
+    "C_vtoC_p",
+    "S_trans",
+    "S_rot",
+    "S_elec",
+    "S_vib",
+    "Sbar",
+    "S",
+]
 FREQUENCY_OUTCAR_PATTERN = re.compile(
     r"f(?P<imaginary>/i)?\s*=\s*.*?(?P<cm1>[+-]?\d+(?:\.\d+)?)\s*cm-1.*?(?P<mev>[+-]?\d+(?:\.\d+)?)\s*meV",
     flags=re.IGNORECASE,
@@ -140,8 +157,6 @@ def crawl_root_to_frame(
             cache_dir=cache_dir,
         )
     frame = add_element_count_columns(frame, structure_column="struc")
-    if active_thermo_filename:
-        frame = merge_entropies_file(frame, active_thermo_filename)
     if query:
         frame = frame.query(query)
     return ensure_name_index(frame)
@@ -328,6 +343,12 @@ def create_calculation_frame(
             if verbose:
                 print(f"[onepiece crawl] skipping unreadable structure: {structure_path}")
             continue
+        original_structure_path = structure_path
+        atoms, structure_path, outcar_override = _override_missing_energy_with_outcar(
+            atoms,
+            structure_path=structure_path,
+            calc_dir=calc_dir,
+        )
         contcar_atoms = _load_optional_structure(calc_dir / "CONTCAR") or atoms.copy()
 
         relative_dir = calc_dir.relative_to(root_path) if calc_dir.is_relative_to(root_path) else calc_dir
@@ -341,6 +362,9 @@ def create_calculation_frame(
             "relative_path": relative_dir.as_posix() if hasattr(relative_dir, "as_posix") else str(relative_dir),
             "files": inventory,
             "calc_file": calc_file,
+            "structure_source_original": original_structure_path.name,
+            "structure_file_original": str(original_structure_path),
+            "structure_source_overridden_by_outcar": outcar_override,
             "structure_source": structure_path.name,
             "structure_file": str(structure_path),
             "struc": atoms.copy(),
@@ -371,9 +395,7 @@ def create_calculation_frame(
         )
         _update_record_with_frequency_summaries(record, calc_dir=calc_dir)
 
-        entropy_path = calc_dir / str(thermo_filename) if thermo_filename else None
-        record["entropy_source_file"] = str(entropy_path) if entropy_path is not None else None
-        record["entropy_data_available"] = bool(entropy_path and entropy_path.exists())
+        _update_record_with_thermochemistry(record, calc_dir=calc_dir, thermo_filename=thermo_filename)
         if base_cache_path is not None:
             _write_cached_record(base_cache_path, cache_key=base_cache_key, record=record)
         records.append(record)
@@ -510,23 +532,7 @@ def merge_entropies_file(frame: pd.DataFrame, entropies_file: str | Path) -> pd.
 
 def _merge_per_folder_thermochemistry(frame: pd.DataFrame, *, filename: str) -> pd.DataFrame:
     enriched = frame.copy()
-    thermo_columns = [
-        "modes_for_G",
-        "Cv_at_T",
-        "E_pot",
-        "E_ZPE",
-        "Cv_trans",
-        "Cv_rot",
-        "Cv_vib",
-        "C_vtoC_p",
-        "S_trans",
-        "S_rot",
-        "S_elec",
-        "S_vib",
-        "Sbar",
-        "S",
-    ]
-    for column in thermo_columns:
+    for column in THERMOCHEMISTRY_COLUMNS:
         if column not in enriched.columns:
             enriched[column] = None if column == "modes_for_G" else np.nan
     if "entropy_source_file" not in enriched.columns:
@@ -553,6 +559,28 @@ def _merge_per_folder_thermochemistry(frame: pd.DataFrame, *, filename: str) -> 
             enriched.at[index, key] = value
         enriched.at[index, "entropy_data_available"] = True
     return enriched
+
+
+def _update_record_with_thermochemistry(
+    record: dict[str, object],
+    *,
+    calc_dir: Path,
+    thermo_filename: str | None,
+) -> None:
+    for column in THERMOCHEMISTRY_COLUMNS:
+        record[column] = None if column == "modes_for_G" else np.nan
+
+    entropy_path = calc_dir / str(thermo_filename) if thermo_filename else None
+    record["entropy_source_file"] = str(entropy_path) if entropy_path is not None else None
+    record["entropy_data_available"] = False
+    if entropy_path is None or not entropy_path.exists():
+        return
+
+    parsed = _parse_ase_thermo_output(entropy_path)
+    if not parsed:
+        return
+    record.update(parsed)
+    record["entropy_data_available"] = True
 
 
 def _parse_ase_thermo_output(path: Path) -> dict[str, Any]:
@@ -596,11 +624,13 @@ def _parse_ase_thermo_output(path: Path) -> dict[str, Any]:
             compact_line = _normalize_token(line)
             matched = next((column for token, column in mapping.items() if token in compact_line), None)
         if matched is None:
-            if line.startswith("S ") and "1 bar" not in line:
+            if line.startswith("S ") and "1 bar -> P" in line:
+                matched = "Sbar"
+            elif line.startswith("S ") and "1 bar" not in line:
                 matched = "S"
             else:
                 continue
-        value = _first_float(right)
+        value = _thermochemistry_float(right, matched)
         if value is not None:
             results[matched] = value
 
@@ -700,6 +730,24 @@ def _load_optional_structure(path: Path) -> Atoms | None:
     return _read_structure(path)
 
 
+def _override_missing_energy_with_outcar(
+    atoms: Atoms,
+    *,
+    structure_path: Path,
+    calc_dir: Path,
+) -> tuple[Atoms, Path, bool]:
+    """Use OUTCAR as the active row source when the preferred file lacks energy."""
+    if pd.notna(_safe_energy(atoms)) or structure_path.name == "OUTCAR":
+        return atoms, structure_path, False
+    outcar_path = calc_dir / "OUTCAR"
+    if not outcar_path.exists():
+        return atoms, structure_path, False
+    outcar_atoms = _read_structure(outcar_path)
+    if outcar_atoms is None or pd.isna(_safe_energy(outcar_atoms)):
+        return atoms, structure_path, False
+    return outcar_atoms, outcar_path, True
+
+
 def _normalize_token(text: str) -> str:
     return "".join(character for character in text.lower() if character.isalnum())
 
@@ -721,6 +769,19 @@ def _first_float(text: str) -> float | None:
         return float(number_token)
     except ValueError:
         return None
+
+
+def _thermochemistry_float(text: str, column: str) -> float | None:
+    cleaned = text.replace("D", "E").replace("d", "e")
+    if column.startswith("S"):
+        match = re.search(r"([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*eV/K", cleaned)
+        if match:
+            return float(match.group(1))
+    else:
+        match = re.search(r"([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*eV\b", cleaned)
+        if match:
+            return float(match.group(1))
+    return _first_float(text)
 
 
 def _safe_energy(atoms: Atoms) -> float:
@@ -1021,7 +1082,8 @@ def _base_cache_key(calc_dir: Path, structure_path: Path, *, thermo_filename: st
     ]
     if thermo_filename:
         parts.append(calc_dir / thermo_filename)
-    return cache_key_for_paths(*parts)
+    raw_key = f"{BASE_CRAWL_CACHE_SCHEMA_VERSION}:{cache_key_for_paths(*parts)}"
+    return sha256(raw_key.encode("utf-8")).hexdigest()
 
 
 def _electronic_cache_key(calc_dir: Path) -> str:

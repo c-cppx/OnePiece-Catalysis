@@ -49,19 +49,58 @@ DEFAULT_ADSORBATE_TOKENS = (
     "O",
     "H",
 )
+DEFAULT_NAME_DELIMITERS = "-_%"
+DEFAULT_REFERENCE_DESCENDANT_MARKERS = ("copt", "ci")
 
 
-def _adsorbate_pattern(tokens: tuple[str, ...]) -> re.Pattern[str]:
+def compile_adsorbate_pattern(
+    tokens: tuple[str, ...] = DEFAULT_ADSORBATE_TOKENS,
+    *,
+    delimiters: str = DEFAULT_NAME_DELIMITERS,
+) -> re.Pattern[str]:
+    """Compile a delimiter-aware adsorbate token pattern.
+
+    Examples
+    --------
+    >>> pattern = compile_adsorbate_pattern(("NO3",))
+    >>> bool(pattern.search("Cu-111-clean-NO3-1"))
+    True
+    """
     ordered = sorted({token for token in tokens if token}, key=len, reverse=True)
+    if not ordered:
+        return re.compile(r"a^")
     choices = "|".join(re.escape(token) for token in ordered)
-    return re.compile(rf"[-_%]({choices})(?:[-_%].*|$)", re.IGNORECASE)
+    delimiter_class = re.escape(delimiters)
+    return re.compile(rf"[{delimiter_class}]({choices})(?:[{delimiter_class}].*|$)", re.IGNORECASE)
 
 
-ADSORBATE_PATTERN = _adsorbate_pattern(DEFAULT_ADSORBATE_TOKENS)
+def compile_reference_descendant_pattern(
+    markers: tuple[str, ...] = DEFAULT_REFERENCE_DESCENDANT_MARKERS,
+    *,
+    delimiters: str = "-",
+) -> re.Pattern[str]:
+    """Compile a suffix pattern for rows nested below a surface reference.
+
+    Examples
+    --------
+    >>> pattern = compile_reference_descendant_pattern(("neb",))
+    >>> bool(pattern.search("Cu-111-clean-neb-00"))
+    True
+    """
+    ordered = sorted({str(marker) for marker in markers if str(marker)}, key=len, reverse=True)
+    if not ordered:
+        return re.compile(r"a^")
+    choices = "|".join(re.escape(marker) for marker in ordered)
+    delimiter_class = re.escape(delimiters)
+    return re.compile(rf"[{delimiter_class}](?:{choices})(?:[{delimiter_class}]|$).*$", re.IGNORECASE)
+
+
+ADSORBATE_PATTERN = compile_adsorbate_pattern(DEFAULT_ADSORBATE_TOKENS)
 FORMULA_PATTERN = re.compile(r"([A-Z][a-z]?)(\d*)")
 NAME_COPT_PATTERN = re.compile(
     r"^(?P<surface_base>.*)-copt-(?P<reaction>.+)-(?P<path_id>[^-]+)-(?P<step>\d+)$"
 )
+REFERENCE_DESCENDANT_PATTERN = compile_reference_descendant_pattern(DEFAULT_REFERENCE_DESCENDANT_MARKERS)
 
 
 def formula_counts(formula: object) -> dict[str, int]:
@@ -213,19 +252,55 @@ def adsorbate_counts_from_structures(total_atoms: object, surface_atoms: object)
     return counts
 
 
-def guess_adsorbate(name: object) -> str:
+def guess_adsorbate(
+    name: object,
+    *,
+    tokens: tuple[str, ...] = DEFAULT_ADSORBATE_TOKENS,
+    pattern: re.Pattern[str] | None = None,
+) -> str:
     """Guess the adsorbate token from a calculation name."""
     if not isinstance(name, str):
         return ""
-    match = ADSORBATE_PATTERN.search(name)
-    return match.group(1) if match else ""
+    active_pattern = pattern or (ADSORBATE_PATTERN if tokens == DEFAULT_ADSORBATE_TOKENS else compile_adsorbate_pattern(tokens))
+    match = active_pattern.search(name)
+    if not match:
+        return ""
+    token = match.group(1)
+    if len(token) == 1 and token != token.upper():
+        return ""
+    return token
 
 
-def surface_key_from_name(name: object) -> str:
+def surface_key_from_name(
+    name: object,
+    *,
+    tokens: tuple[str, ...] = DEFAULT_ADSORBATE_TOKENS,
+    adsorbate_pattern: re.Pattern[str] | None = None,
+    descendant_markers: tuple[str, ...] = DEFAULT_REFERENCE_DESCENDANT_MARKERS,
+    descendant_pattern: re.Pattern[str] | None = None,
+) -> str:
     """Remove adsorbate and constrained-optimization suffixes from a row name."""
     if not isinstance(name, str):
         return ""
     copt_match = NAME_COPT_PATTERN.match(name)
     if copt_match:
         return copt_match.group("surface_base")
-    return ADSORBATE_PATTERN.sub("", name)
+    active_descendant_pattern = (
+        descendant_pattern
+        or (
+            REFERENCE_DESCENDANT_PATTERN
+            if descendant_markers == DEFAULT_REFERENCE_DESCENDANT_MARKERS
+            else compile_reference_descendant_pattern(descendant_markers)
+        )
+    )
+    descendant_match = active_descendant_pattern.search(name)
+    if descendant_match:
+        return name[: descendant_match.start()]
+    active_adsorbate_pattern = (
+        adsorbate_pattern
+        or (ADSORBATE_PATTERN if tokens == DEFAULT_ADSORBATE_TOKENS else compile_adsorbate_pattern(tokens))
+    )
+    match = active_adsorbate_pattern.search(name)
+    if match and len(match.group(1)) == 1 and match.group(1) != match.group(1).upper():
+        return name
+    return active_adsorbate_pattern.sub("", name)

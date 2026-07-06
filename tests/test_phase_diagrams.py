@@ -5,14 +5,17 @@ import pandas as pd
 import sympy as sp
 
 from onepiece.phase_diagrams import (
+    PhaseCandidateValidationRules,
     build_corrected_phase_expressions,
     build_grouped_surface_phase_diagrams,
     build_phase_field_grid,
     build_surface_phase_diagram,
+    clean_phase_candidates,
     default_phase_variables,
     estimate_phase_scan_slopes,
     solve_phase_boundaries,
     stable_phase_scan,
+    validate_phase_candidates,
 )
 
 
@@ -186,3 +189,102 @@ def test_build_grouped_surface_phase_diagrams_splits_by_group_column() -> None:
 
     assert set(grouped.groups) == {"100", "111"}
     assert all(not result.stable_summary.empty for result in grouped.groups.values())
+
+
+def test_validate_phase_candidates_supports_generic_cleaning_rules() -> None:
+    rules = PhaseCandidateValidationRules(
+        adsorbate_tokens=("NO3",),
+        adsorbate_name_search_after_pattern=r"\d+x\d+",
+        excluded_name_substrings={"backup_candidate": ("backup",)},
+        element_count_columns=("M", "X", "O"),
+    )
+    frame = pd.DataFrame(
+        {
+            "Name": [
+                "M-111-clean-2x2",
+                "M-111-clean-2x2-backup",
+                "M-111-clean-2x2-NO3-1",
+                "M-111-clean-2x2-O-1",
+                "M-111-clean-2x2-column",
+            ],
+            "adsorbate": ["", "", "", "", "CO"],
+            "M": [4, 4, 4, 4, 4],
+            "X": [1, 1, 1, 1, 1],
+            "O": [0, 0, 0, 1, 0],
+        }
+    )
+
+    audit = validate_phase_candidates(
+        frame,
+        system="MX",
+        phase_set="111",
+        allowed_elements=("M", "X"),
+        rules=rules,
+    )
+    cleaned = clean_phase_candidates(
+        frame,
+        system="MX",
+        phase_set="111",
+        allowed_elements=("M", "X"),
+        rules=rules,
+    )
+
+    assert cleaned["Name"].tolist() == ["M-111-clean-2x2"]
+    assert cleaned.attrs["phase_input_cleaning_audit"].equals(audit)
+    dropped_reasons = ";".join(audit.loc[audit["status"].eq("dropped"), "drop_reasons"])
+    assert "backup_candidate" in dropped_reasons
+    assert "adsorbate_name_marker" in dropped_reasons
+    assert "extra_element_count" in dropped_reasons
+    assert "adsorbate_column" in dropped_reasons
+
+
+def test_phase_candidate_validation_rules_round_trip_from_mapping() -> None:
+    rules = PhaseCandidateValidationRules.from_mapping(
+        {
+            "adsorbate_tokens": ["NO3"],
+            "adsorbate_name_search_after_pattern": r"\d+x\d+",
+            "excluded_name_patterns": {"temporary_candidate": [r"tmp$"]},
+            "allowed_elements": ["M"],
+        }
+    )
+    payload = rules.to_mapping()
+    frame = pd.DataFrame(
+        {
+            "Name": ["M-clean-2x2", "M-clean-2x2-NO3-1", "M-clean-2x2-tmp"],
+            "M": [4, 4, 4],
+            "N": [0, 1, 0],
+        }
+    )
+
+    audit = validate_phase_candidates(frame, rules=payload)
+
+    assert rules.adsorbate_tokens == ("NO3",)
+    assert payload["adsorbate_tokens"] == ["NO3"]
+    assert tuple(payload["excluded_name_patterns"]["temporary_candidate"]) == (r"tmp$",)
+    assert audit["status"].tolist() == ["kept", "dropped", "dropped"]
+    assert "adsorbate_name_marker" in audit.loc[1, "drop_reasons"]
+    assert "temporary_candidate" in audit.loc[2, "drop_reasons"]
+
+
+def test_validate_phase_candidates_applies_configurable_bulk_exclusions() -> None:
+    rules = PhaseCandidateValidationRules(
+        bulk_excluded_name_substrings={"not_true_bulk_candidate": ("XANES",)},
+        bulk_excluded_path_patterns={"not_true_bulk_candidate": (r"[/\\]slabs[/\\]",)},
+    )
+    frame = pd.DataFrame(
+        {
+            "Name": ["M-bulk", "M-bulk-XANES", "M-slab-row"],
+            "Path": ["/calc/M/bulk", "/calc/M/bulk/XANES", "/calc/M/slabs/111/ads"],
+            "M": [1, 1, 1],
+        }
+    )
+
+    audit = validate_phase_candidates(
+        frame,
+        phase_set="Bulk",
+        allowed_elements=("M",),
+        rules=rules,
+    )
+
+    assert audit["status"].tolist() == ["kept", "dropped", "dropped"]
+    assert audit.loc[1:, "drop_reasons"].tolist() == ["not_true_bulk_candidate", "not_true_bulk_candidate"]

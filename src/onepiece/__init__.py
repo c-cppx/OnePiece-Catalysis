@@ -72,7 +72,12 @@ from onepiece.provenance import (
 from onepiece.qa import bundled_catalysis_hub_dataset
 from onepiece.sources import read_dataset_path, read_hdf_path
 from onepiece.storage import load_dataset, save_dataset
-from onepiece.thermo import add_gibbs_free_energy, adsorbate_free_energy, gas_free_energy
+from onepiece.thermo import (
+    add_gibbs_free_energy,
+    adsorbate_free_energy,
+    gas_free_energy,
+    oxygen_reference_from_h2o_h2,
+)
 from onepiece.vasp import (
     add_atomic_magnetic_moment_descriptors,
     add_atomic_reference_difference_descriptors,
@@ -102,6 +107,7 @@ __all__ = [
     "add_gibbs_free_energy",
     "adsorbate_free_energy",
     "gas_free_energy",
+    "oxygen_reference_from_h2o_h2",
     # Plotting
     "plot_adsorption_energy_vs_frequency",
     "plot_row_metric_3d",

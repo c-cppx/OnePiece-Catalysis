@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,6 +32,7 @@ from onepiece.vasp import (
     add_adsorbate_charge_descriptors,
     add_projected_dos_descriptors,
 )
+from onepiece.workflow_config import ProjectWorkflowConfig, coerce_project_workflow_config
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,9 +220,10 @@ def _group_rank_with_polars(df: pd.DataFrame, operation: dict[str, Any]) -> pd.D
 
 def _derive_recipe_adsorption(df: pd.DataFrame, operation: dict[str, Any]) -> pd.DataFrame:
     return add_recipe_adsorption_energies(
-        assign_surface_references(df),
+        df,
         operation.get("gas_reference_values"),
         operation.get("recipes"),
+        reference_assignment_kwargs=_operation_reference_assignment_kwargs(operation),
     )
 
 
@@ -241,7 +244,7 @@ def _derive_curation(df: pd.DataFrame, operation: dict[str, Any]) -> pd.DataFram
 
 
 def _derive_structure_descriptors(df: pd.DataFrame, operation: dict[str, Any]) -> pd.DataFrame:
-    return add_structure_descriptors(df)
+    return add_structure_descriptors(df, config=_operation_workflow_config(operation))
 
 
 def _derive_vasp_charge_descriptors(df: pd.DataFrame, operation: dict[str, Any]) -> pd.DataFrame:
@@ -254,6 +257,7 @@ def _derive_vasp_charge_descriptors(df: pd.DataFrame, operation: dict[str, Any])
         structure_column=str(operation.get("structure_column", "struc")),
         acf_filename=str(operation.get("acf_filename", "ACF.dat")),
         filename=str(operation.get("filename", "CHGCAR")),
+        config=_operation_workflow_config(operation),
     )
 
 
@@ -276,6 +280,7 @@ def _derive_ase_analysis_descriptors(df: pd.DataFrame, operation: dict[str, Any]
         calculation_path_column=str(operation.get("calculation_path_column", "Path")),
         doscar_path_column=str(operation.get("doscar_path_column", "doscar_path")),
         dos_filename=str(operation.get("filename", "DOSCAR")),
+        config=_operation_workflow_config(operation),
     )
 
 
@@ -328,7 +333,7 @@ def _exclude_by_match_rules(df: pd.DataFrame, operation: dict[str, Any]) -> pd.D
 
 def _derive_adsorption_columns(df: pd.DataFrame, operation: dict[str, Any]) -> pd.DataFrame:
     return add_adsorption_energies(
-        assign_surface_references(df),
+        assign_surface_references(df, **_operation_reference_assignment_kwargs(operation)),
         _normalized_gas_references(operation.get("gas_references")),
     )
 
@@ -350,6 +355,7 @@ def _derive_gibbs_adsorption(df: pd.DataFrame, operation: dict[str, Any]) -> pd.
         energy_column=str(operation.get("energy_column", "E")),
         gibbs_column=str(operation.get("gibbs_column", "G")),
         output_column=str(operation.get("output_column", "adsorption_free_energy")),
+        reference_assignment_kwargs=_operation_reference_assignment_kwargs(operation),
     )
 
 
@@ -407,6 +413,17 @@ def _apply_numeric_operator(left: Any, right: Any, operator: str) -> Any:
     if operator == "/":
         return left / right
     raise ValueError(f"Unsupported operator: {operator}")
+
+
+def _operation_workflow_config(operation: Mapping[str, Any]) -> ProjectWorkflowConfig:
+    payload = operation.get("workflow_config")
+    if payload is None:
+        payload = operation.get("project_workflow_config")
+    return coerce_project_workflow_config(payload)
+
+
+def _operation_reference_assignment_kwargs(operation: Mapping[str, Any]) -> dict[str, object]:
+    return _operation_workflow_config(operation).reference_assignment_kwargs()
 
 
 def _filter_mask(df: pd.DataFrame, operation: dict[str, Any]) -> pd.Series:

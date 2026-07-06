@@ -148,6 +148,38 @@ corrections used to construct it.
 - `onepiece.copt_profile_points(...)`
 - `onepiece.copt_barrier_summary(...)`
 
+Project-specific cleaning should be expressed as a backend config rather than
+hard-coded into notebooks or UI pages:
+
+```python
+import pandas as pd
+
+from onepiece.calculation_frame import CalculationFrame
+from onepiece.workflow_config import ProjectWorkflowConfig
+
+config = ProjectWorkflowConfig.from_mapping(
+    {
+        "adsorbate_tokens": ["O", "OH", "CO"],
+        "adsorbate_elements": ["C", "H", "O"],
+        "phase_candidate_validation_rules": {
+            "adsorbate_tokens": ["O", "OH", "CO"],
+            "allowed_elements": ["Cu", "Ga", "O"],
+        },
+    }
+)
+
+cleaned = (
+    CalculationFrame(pd.read_csv("phase_candidates.csv"), config=config)
+    .assign_surface_references()
+    .clean_phase_candidates(system="CuGa", phase_set="111", allowed_elements=("Cu", "Ga", "O"))
+    .dataframe
+)
+```
+
+This route keeps the generic mechanics in `onepiece` while letting examples
+define adsorbate tokens, reference exclusions, descendant markers, and
+phase-candidate validation rules explicitly.
+
 ### Thermochemistry
 
 - `onepiece.gas_free_energy(...)`

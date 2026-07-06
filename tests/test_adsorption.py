@@ -15,6 +15,9 @@ from onepiece.adsorption import (
     adsorption_view,
     annotate_copt_paths,
     assign_surface_references,
+    assign_surface_reference_descendants,
+    compile_adsorbate_pattern,
+    compile_reference_descendant_pattern,
     copt_barrier_summary,
     copt_profile_points,
     default_room_temperature_phase,
@@ -25,7 +28,11 @@ from onepiece.adsorption import (
     parse_reference_equation,
     surface_key_from_name,
 )
-from onepiece.thermo import add_gibbs_free_energy
+from onepiece.thermo import (
+    add_gibbs_free_energy,
+    apply_gas_reference_corrections,
+    oxygen_reference_from_h2o_h2,
+)
 from onepiece.workflows import apply_operation
 
 
@@ -274,9 +281,130 @@ def test_guess_adsorbate_supports_broader_adsorbate_set() -> None:
     assert guess_adsorbate("CuMgO-CO_NH2-1") == "CO_NH2"
 
 
+def test_adsorbate_detection_accepts_custom_token_api() -> None:
+    pattern = compile_adsorbate_pattern(("NO3",))
+
+    assert guess_adsorbate("Cu-111-clean-NO3-1", tokens=("NO3",), pattern=pattern) == "NO3"
+    assert surface_key_from_name("Cu-111-clean-NO3-1", tokens=("NO3",), adsorbate_pattern=pattern) == "Cu-111-clean"
+    assert guess_adsorbate("Cu-111-clean-NO3-1", tokens=()) == ""
+
+
 def test_surface_key_strips_extended_adsorbate_tokens() -> None:
     assert surface_key_from_name("CuMgO-H2NCHO-4") == "CuMgO"
     assert surface_key_from_name("MgOCu-HCOO_H-1") == "MgOCu"
+
+
+def test_lowercase_o_slab_size_prefix_is_not_adsorbate() -> None:
+    name = "Cu-slabs-111-clean-o_3x3x4-Ga10O12"
+    assert guess_adsorbate(name) == ""
+    assert surface_key_from_name(name) == name
+
+
+def test_ci_and_copt_names_resolve_to_parent_surface_key() -> None:
+    surface = "Cu-slabs-111-Ga-surface-3x3x4-1"
+
+    assert surface_key_from_name(f"{surface}-copt") == surface
+    assert surface_key_from_name(f"{surface}-copt-HCOO_H%H2COO-AAB-00") == surface
+    assert surface_key_from_name(f"{surface}-CI-HCOO_AB%HCOOH_AB-1-00") == surface
+
+
+def test_assign_surface_references_uses_parent_folder_for_ci_and_copt_descendants() -> None:
+    surface = "Cu-slabs-111-Ga-surface-3x3x4-1"
+    frame = pd.DataFrame(
+        {
+            "Name": [
+                surface,
+                f"{surface}-copt",
+                f"{surface}-CI-HCOO_AB%HCOOH_AB-1-00",
+                "00",
+            ],
+            "relative_path": [
+                "Cu/slabs/111/Ga-surface/3x3x4/1",
+                "Cu/slabs/111/Ga-surface/3x3x4/1/copt",
+                "Cu/slabs/111/Ga-surface/3x3x4/1/CI/HCOO_AB%HCOOH_AB/1/00",
+                "Cu/slabs/111/Ga-surface/3x3x4/1/custom_scan/00",
+            ],
+            "Formula": ["Cu35Ga", "CHCu35GaO", "CH2Cu35GaO2", "H2Cu35Ga"],
+            "E": [-30.0, -31.0, -32.0, -30.5],
+            "Cu": [35, 35, 35, 35],
+            "Ga": [1, 1, 1, 1],
+            "C": [0, 1, 1, 0],
+            "H": [0, 1, 2, 2],
+            "O": [0, 1, 2, 0],
+        }
+    )
+
+    referenced = assign_surface_references(frame)
+
+    descendants = referenced.loc[referenced["Name"].ne(surface)]
+    assert descendants["surface_ref_name"].tolist() == [surface, surface, surface]
+    assert descendants["surface_key"].tolist() == [surface, surface, surface]
+    assert descendants["is_adsorbate"].tolist() == [True, True, True]
+    assert descendants["surface_key_from_reference_path"].tolist() == [True, True, True]
+
+
+def test_surface_reference_descendant_logic_accepts_custom_path_columns_and_markers() -> None:
+    surface = "M-clean"
+    assert compile_reference_descendant_pattern(("neb",)).search(f"{surface}-neb-00")
+    frame = pd.DataFrame(
+        {
+            "Name": [surface, f"{surface}-neb-00", "custom-child"],
+            "calc_path": ["M/clean", "M/clean/neb/00", "M/clean/scan/01"],
+            "Formula": ["M4", "M4H", "M4H2"],
+            "E": [-10.0, -10.5, -11.0],
+            "M": [4, 4, 4],
+            "H": [0, 1, 2],
+        }
+    )
+
+    referenced = assign_surface_references(
+        frame,
+        reference_descendant_markers=("neb",),
+        reference_path_columns=("calc_path",),
+    )
+    remapped = assign_surface_reference_descendants(
+        referenced,
+        referenced.loc[referenced["Name"].eq(surface)],
+        path_columns=("calc_path",),
+    )
+
+    descendants = remapped.loc[remapped["Name"].ne(surface)]
+    assert descendants["surface_ref_name"].tolist() == [surface, surface]
+    assert descendants["surface_key"].tolist() == [surface, surface]
+    assert descendants["surface_key_from_reference_path"].tolist() == [True, True]
+
+
+def test_nested_oxygen_adsorption_sequence_uses_topmost_surface_reference() -> None:
+    surface = "Cu-slabs-111-Ga-surface-3x3x4-1"
+    oxygenated = f"{surface}-Ox4-1"
+    co_on_oxygenated = f"{oxygenated}-CO-1"
+    frame = pd.DataFrame(
+        {
+            "Name": [surface, oxygenated, co_on_oxygenated],
+            "relative_path": [
+                "Cu/slabs/111/Ga-surface/3x3x4/1",
+                "Cu/slabs/111/Ga-surface/3x3x4/1/Ox4/1",
+                "Cu/slabs/111/Ga-surface/3x3x4/1/Ox4/1/CO/1",
+            ],
+            "Formula": ["Cu35Ga", "Cu35GaO4", "CCu35GaO5"],
+            "E": [-30.0, -44.0, -58.0],
+            "Cu": [35, 35, 35],
+            "Ga": [1, 1, 1],
+            "C": [0, 0, 1],
+            "H": [0, 0, 0],
+            "O": [0, 4, 5],
+        }
+    )
+
+    referenced = assign_surface_references(frame)
+    descendants = referenced.loc[referenced["Name"].ne(surface)]
+
+    assert descendants["surface_ref_name"].tolist() == [surface, surface]
+    assert descendants["surface_key"].tolist() == [surface, surface]
+    assert descendants["is_adsorbate"].tolist() == [True, True]
+    assert descendants["surface_key_from_reference_path"].tolist() == [True, True]
+    assert descendants["delta_O"].tolist() == [4.0, 5.0]
+    assert referenced.loc[referenced["Name"].eq(co_on_oxygenated), "adsorbate"].iloc[0] == "CO"
 
 
 def test_elemental_adsorption_energy_uses_structure_difference_and_mu_references() -> None:
@@ -328,6 +456,20 @@ def test_add_gibbs_free_energy_distinguishes_gas_and_adsorbate_rows() -> None:
 
     assert np.isclose(result.loc[0, "G"], -10.9)
     assert np.isclose(result.loc[1, "G"], -18.9)
+
+
+def test_apply_gas_reference_corrections_returns_corrected_copy() -> None:
+    refs = {"CO2": -19.2, "H2": -7.5}
+
+    corrected = apply_gas_reference_corrections(refs, {"CO2": 0.35, "missing": -1.0})
+
+    assert np.isclose(corrected["CO2"], -18.85)
+    assert np.isclose(corrected["H2"], -7.5)
+    assert refs == {"CO2": -19.2, "H2": -7.5}
+
+
+def test_oxygen_reference_from_h2o_h2_uses_water_hydrogen_basis() -> None:
+    assert np.isclose(oxygen_reference_from_h2o_h2({"H2O": -13.2, "H2": -7.5}), -5.7)
 
 
 def test_elemental_adsorption_free_energy_uses_gibbs_column_and_gas_gibbs_references() -> None:

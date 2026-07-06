@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,8 +11,17 @@ import numpy as np
 import pandas as pd
 
 from onepiece.adsorption.copt import is_constrained_optimization
+from onepiece.adsorption.cleaning import (
+    assign_surface_reference_descendants,
+    drop_name_excluded_reference_candidates,
+    drop_nested_reference_candidates as _drop_nested_reference_candidates,
+)
 from onepiece.adsorption.formulas import (
+    DEFAULT_ADSORBATE_TOKENS,
+    DEFAULT_REFERENCE_DESCENDANT_MARKERS,
     count_element,
+    compile_adsorbate_pattern,
+    compile_reference_descendant_pattern,
     formula_counts,
     guess_adsorbate,
     surface_key_from_name,
@@ -209,20 +218,57 @@ def read_onepiece_hdfs(
     }
 
 
-def annotate_adsorbates(frame: pd.DataFrame) -> pd.DataFrame:
+def annotate_adsorbates(
+    frame: pd.DataFrame,
+    *,
+    adsorbate_tokens: Sequence[str] = DEFAULT_ADSORBATE_TOKENS,
+    adsorbate_elements: Sequence[str] = ("C", "H"),
+    reference_descendant_markers: Sequence[str] = DEFAULT_REFERENCE_DESCENDANT_MARKERS,
+) -> pd.DataFrame:
     """Add adsorbate, surface key, and basic energy columns."""
     df = ensure_name_index(frame)
     df["Name"] = df.get("Name", pd.Series([""] * len(df), index=df.index)).astype(str)
     df["E"] = pd.to_numeric(df.get("E"), errors="coerce")
-    df["adsorbate"] = df["Name"].map(guess_adsorbate)
-    df["is_adsorbate"] = df["adsorbate"] != ""
-    df["surface_key"] = df["Name"].map(surface_key_from_name)
+    tokens = tuple(str(token) for token in adsorbate_tokens if str(token))
+    descendant_markers = tuple(str(marker) for marker in reference_descendant_markers if str(marker))
+    adsorbate_pattern = compile_adsorbate_pattern(tokens)
+    descendant_pattern = compile_reference_descendant_pattern(descendant_markers)
+    df["adsorbate"] = df["Name"].map(lambda name: guess_adsorbate(name, tokens=tokens, pattern=adsorbate_pattern))
+    contains_adsorbate_elements = df.apply(
+        lambda row: _contains_adsorbate_elements(row, elements=tuple(adsorbate_elements)),
+        axis=1,
+    )
+    df["is_adsorbate"] = (df["adsorbate"] != "") | contains_adsorbate_elements
+    df["surface_key"] = df["Name"].map(
+        lambda name: surface_key_from_name(
+            name,
+            tokens=tokens,
+            adsorbate_pattern=adsorbate_pattern,
+            descendant_markers=descendant_markers,
+            descendant_pattern=descendant_pattern,
+        )
+    )
     return df
 
 
-def choose_surface_references(frame: pd.DataFrame) -> pd.DataFrame:
+def choose_surface_references(
+    frame: pd.DataFrame,
+    *,
+    adsorbate_tokens: Sequence[str] = DEFAULT_ADSORBATE_TOKENS,
+    adsorbate_elements: Sequence[str] = ("C", "H"),
+    reference_descendant_markers: Sequence[str] = DEFAULT_REFERENCE_DESCENDANT_MARKERS,
+    reference_path_columns: Sequence[str] = ("relative_path", "Path"),
+    exclude_reference_name_substrings: Sequence[str] = (),
+    exclude_reference_name_patterns: Sequence[str | re.Pattern[str]] = (),
+    drop_nested_reference_candidates: bool = True,
+) -> pd.DataFrame:
     """Choose one clean/reference row per surface key in a single source table."""
-    df = annotate_adsorbates(frame)
+    df = annotate_adsorbates(
+        frame,
+        adsorbate_tokens=adsorbate_tokens,
+        adsorbate_elements=adsorbate_elements,
+        reference_descendant_markers=reference_descendant_markers,
+    )
     candidates = df.loc[
         ~df["is_adsorbate"]
         & df["E"].notna()
@@ -231,6 +277,16 @@ def choose_surface_references(frame: pd.DataFrame) -> pd.DataFrame:
     ].copy()
     if candidates.empty:
         return candidates
+
+    candidates = drop_name_excluded_reference_candidates(
+        candidates,
+        substrings=exclude_reference_name_substrings,
+        patterns=exclude_reference_name_patterns,
+    )
+    if drop_nested_reference_candidates and not candidates.empty:
+        candidates = _drop_nested_reference_candidates(candidates, path_columns=reference_path_columns)
+        if candidates.empty:
+            return candidates
 
     candidates["reference_candidate_count"] = candidates.groupby("surface_key")["Name"].transform(
         "count"
@@ -241,10 +297,39 @@ def choose_surface_references(frame: pd.DataFrame) -> pd.DataFrame:
     return references
 
 
-def assign_surface_references(frame: pd.DataFrame) -> pd.DataFrame:
+def assign_surface_references(
+    frame: pd.DataFrame,
+    *,
+    adsorbate_tokens: Sequence[str] = DEFAULT_ADSORBATE_TOKENS,
+    adsorbate_elements: Sequence[str] = ("C", "H"),
+    reference_descendant_markers: Sequence[str] = DEFAULT_REFERENCE_DESCENDANT_MARKERS,
+    reference_path_columns: Sequence[str] = ("relative_path", "Path"),
+    exclude_reference_name_substrings: Sequence[str] = (),
+    exclude_reference_name_patterns: Sequence[str | re.Pattern[str]] = (),
+    mark_reference_descendants_as_adsorbates: bool = True,
+) -> pd.DataFrame:
     """Assign clean-surface references before merging multiple HDF sources."""
-    df = annotate_adsorbates(frame)
-    refs = choose_surface_references(df)
+    df = annotate_adsorbates(
+        frame,
+        adsorbate_tokens=adsorbate_tokens,
+        adsorbate_elements=adsorbate_elements,
+        reference_descendant_markers=reference_descendant_markers,
+    )
+    refs = choose_surface_references(
+        df,
+        adsorbate_tokens=adsorbate_tokens,
+        adsorbate_elements=adsorbate_elements,
+        reference_descendant_markers=reference_descendant_markers,
+        reference_path_columns=reference_path_columns,
+        exclude_reference_name_substrings=exclude_reference_name_substrings,
+        exclude_reference_name_patterns=exclude_reference_name_patterns,
+    )
+    df = assign_surface_reference_descendants(
+        df,
+        refs,
+        path_columns=reference_path_columns,
+        mark_descendants_as_adsorbates=mark_reference_descendants_as_adsorbates,
+    )
     reference_lookup = refs.set_index("surface_key") if not refs.empty else pd.DataFrame()
 
     df["surface_ref_name"] = df["surface_key"].map(
@@ -283,9 +368,15 @@ def assign_surface_references(frame: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _contains_adsorbate_elements(row: pd.Series, *, elements: Sequence[str]) -> bool:
+    return any(count_element(row, str(element)) > 0 for element in elements)
+
+
 def assign_references_before_merge(
     hdf_files: Mapping[str, Path | str],
     key: str = "df",
+    *,
+    reference_assignment_kwargs: Mapping[str, object] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Read, reference-annotate, and then merge HDF sources.
 
@@ -317,9 +408,10 @@ def assign_references_before_merge(
     """
     enriched_frames = []
     reference_frames = []
+    reference_kwargs = dict(reference_assignment_kwargs or {})
     for label, path in hdf_files.items():
         frame = read_onepiece_hdf(path, key=key, dataset_label=label)
-        enriched = assign_surface_references(frame)
+        enriched = assign_surface_references(frame, **reference_kwargs)
         enriched["dataset_label"] = label
         enriched_frames.append(enriched)
         reference_frames.append(

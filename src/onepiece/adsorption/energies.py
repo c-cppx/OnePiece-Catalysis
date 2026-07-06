@@ -97,6 +97,8 @@ def add_recipe_adsorption_energies(
     frame: pd.DataFrame,
     gas_reference_values: Mapping[str, float] | None,
     recipes: Mapping[str, Mapping[str, object]] | None,
+    *,
+    reference_assignment_kwargs: Mapping[str, object] | None = None,
 ) -> pd.DataFrame:
     """Add adsorption energies for arbitrary adsorbate recipes.
 
@@ -112,11 +114,12 @@ def add_recipe_adsorption_energies(
     and the per-adsorbate energy is:
         E_ads = E_ads,total / n_basis
     """
+    reference_kwargs = dict(reference_assignment_kwargs or {})
     df = frame.copy()
     if "adsorbate" not in df.columns or "surface_ref_E" not in df.columns:
-        df = assign_surface_references(df)
+        df = assign_surface_references(df, **reference_kwargs)
     if "adsorbate" not in df.columns:
-        df = annotate_adsorbates(df)
+        df = annotate_adsorbates(df, **_adsorbate_annotation_kwargs(reference_kwargs))
     active_recipes = recipes or infer_adsorption_recipes(df)
     if not active_recipes:
         return df
@@ -253,6 +256,7 @@ def add_elemental_adsorption_energy(
     structure_columns: tuple[str, ...] = ("struc", "CONTCAR", "structure", "atoms"),
     surface_ref_name_column: str = "surface_ref_name",
     output_column: str = "adsorption_energy",
+    reference_assignment_kwargs: Mapping[str, object] | None = None,
 ) -> pd.DataFrame:
     """Add a OnePiece-style adsorption-energy column from structure stoichiometry.
 
@@ -273,7 +277,7 @@ def add_elemental_adsorption_energy(
     refs = gas_reference_values if isinstance(gas_reference_values, GasReferences) else GasReferences.from_mapping(gas_reference_values)
     df = frame.copy()
     if surface_ref_name_column not in df.columns or "surface_ref_E" not in df.columns:
-        df = assign_surface_references(df)
+        df = assign_surface_references(df, **dict(reference_assignment_kwargs or {}))
 
     reference_column = surface_reference_energy_column or ("surface_ref_E" if energy_column == "E" else f"surface_ref_{energy_column}")
     df[energy_column] = pd.to_numeric(df.get(energy_column), errors="coerce")
@@ -329,6 +333,7 @@ def add_elemental_adsorption_free_energy(
     structure_columns: tuple[str, ...] = ("struc", "CONTCAR", "structure", "atoms"),
     surface_ref_name_column: str = "surface_ref_name",
     output_column: str = "adsorption_free_energy",
+    reference_assignment_kwargs: Mapping[str, object] | None = None,
 ) -> pd.DataFrame:
     """Add a Gibbs adsorption free-energy column from structure stoichiometry.
 
@@ -342,7 +347,7 @@ def add_elemental_adsorption_free_energy(
         df = add_gibbs_free_energy(df, temperature=temperature, energy_column=energy_column, output_column=gibbs_column)
 
     if surface_ref_name_column not in df.columns or "surface_ref_E" not in df.columns:
-        df = assign_surface_references(df)
+        df = assign_surface_references(df, **dict(reference_assignment_kwargs or {}))
 
     df[gibbs_column] = pd.to_numeric(df.get(gibbs_column), errors="coerce")
     reference_lookup = (
@@ -359,12 +364,21 @@ def add_elemental_adsorption_free_energy(
         structure_columns=structure_columns,
         surface_ref_name_column=surface_ref_name_column,
         output_column=output_column,
+        reference_assignment_kwargs=reference_assignment_kwargs,
     )
     result["surface_ref_G"] = pd.to_numeric(result.get("surface_ref_G"), errors="coerce")
     result["mu_C_G_eV"] = result["mu_C_eV"]
     result["mu_H_G_eV"] = result["mu_H_eV"]
     result["mu_O_G_eV"] = result["mu_O_eV"]
     return result
+
+
+def _adsorbate_annotation_kwargs(reference_assignment_kwargs: Mapping[str, object]) -> dict[str, object]:
+    return {
+        key: reference_assignment_kwargs[key]
+        for key in ("adsorbate_tokens", "adsorbate_elements", "reference_descendant_markers")
+        if key in reference_assignment_kwargs
+    }
 
 
 def _basis_multiplier(frame: pd.DataFrame, basis: str) -> pd.Series:
