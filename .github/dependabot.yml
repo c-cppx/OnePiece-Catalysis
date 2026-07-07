@@ -6,9 +6,7 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "python"
+    labels: []
     commit-message:
       prefix: "deps"
     groups:
@@ -21,10 +19,7 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "python"
-      - "ui"
+    labels: []
     commit-message:
       prefix: "deps"
     groups:
@@ -37,8 +32,6 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "github-actions"
+    labels: []
     commit-message:
       prefix: "ci"
